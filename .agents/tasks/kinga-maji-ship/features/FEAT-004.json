@@ -2,7 +2,7 @@
   "id": "FEAT-004",
   "type": "feat",
   "description": "Deploy live and PROVE it: vendor the engine, cdk deploy under simi-ops/us-east-1, inject the real API URL into web/index.html, re-upload + invalidate CloudFront, then curl the API (/health, /seed, /reports, /analyze demo) and the CloudFront root to prove a live, populated, no-auth app. Depends on FEAT-001, FEAT-002, FEAT-003.",
-  "status": "pending",
+  "status": "completed",
   "steps": [
     "Create scripts/deploy.sh (bash, set -euo pipefail) that exports AWS_PROFILE=simi-ops AWS_DEFAULT_REGION=us-east-1 and runs the full flow; make it idempotent/re-runnable.",
     "Step: cp engine/depth_engine.py lambda/depth_engine.py (vendor the engine beside the handler).",
@@ -34,5 +34,7 @@
     "curl -s \"$CF\" | grep -qi leaflet && echo CF_HTML_OK"
   ],
   "blocked_reason": null,
-  "findings": ""
+  "findings": "SHIPPED LIVE on AWS account 888577033943 / us-east-1 (profile simi-ops). Stack KingaMajiStack = UPDATE_COMPLETE.\n\nLIVE URLS:\n  CloudFront (public no-auth app): https://d3eujpe11u21wb.cloudfront.net\n  API base: https://dh0959qwna.execute-api.us-east-1.amazonaws.com\n  DynamoDB table: KingaMajiStack-ReportsTable282F2283-1HL3YJG9G8CFC\n  SNS topic: arn:aws:sns:us-east-1:888577033943:KingaMajiStack-AlertsTopic3414BE91-PdZuc58OagS1\n\nCreated scripts/deploy.sh (set -euo pipefail; pins AWS_PROFILE=simi-ops AWS_DEFAULT_REGION=us-east-1; idempotent/re-runnable). Flow: vendor engine (cp engine/depth_engine.py lambda/) -> cdk venv + pip install -> cdk deploy using the LOCAL CDK CLI 2.1144 from cdk/node_modules (required: global 2.1033 is too old for aws-cdk-lib 2.272 cloud-assembly schema) -> read ApiUrl+CloudFrontURL from cdk/outputs.json -> inject real API URL into web/index.html -> re-run cdk deploy so BucketDeployment re-uploads+invalidates -> POST /seed -> curl proofs. CloudFront HTML check retries to tolerate post-invalidation propagation (initial run saw one transient empty body; retry resolves it).\n\nPROOF (all pass, no auth):\n  GET  /health  -> 200\n  GET  /reports -> 200, non-empty reports array (seeded SAMPLE_REPORTS + live /analyze writes)\n  POST /analyze {demo:true,settlement:Mathare,reference_object:doorframe} -> 200, depth_m=0.95, 9-step deterministic trace (engine computes all metres; vision LLM returns pixels only)\n  GET  CloudFront root -> 200, HTML contains 'leaflet' and the injected API URL; placeholder __API_URL__ gone\n\nNOTES: Ship gate met on the demo path + live populated Leaflet map, independent of any real-image Bedrock Nova call. Real-image path is wired (Bedrock Converse, pixel-only prompt) but not required for the gate. SNS is best-effort publish+log inside /analyze (never blocks a request); not a live phone/SMS flow. Second deploy.sh run was a 0s no-op, confirming idempotency.",
+  "live_cloudfront_url": "https://d3eujpe11u21wb.cloudfront.net",
+  "live_api_url": "https://dh0959qwna.execute-api.us-east-1.amazonaws.com"
 }
