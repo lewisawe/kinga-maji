@@ -1,0 +1,9 @@
+# aws-cdk-lib 2.272 emits cloud-assembly schema 54, which needs CDK CLI >= 2.1144.
+# The globally installed CLI is 2.1033 (schema <= 48) and will FAIL with a
+# "schema version mismatch" error. Deploy/synth with a LOCAL CLI instead:
+#   cd cdk && npm install --no-save aws-cdk@latest   # gives 2.1144.0+
+#   PATH="$PWD/node_modules/.bin:$PATH" cdk synth KingaMajiStack
+# (No lib version in the 2.16x+ range emits schema <=48 while still exposing
+#  Runtime.PYTHON_3_13, so downgrading the lib is not an option — use a newer CLI.)
+aws-cdk-lib>=2.272,<2.273
+constructs>=10.0.0,<11

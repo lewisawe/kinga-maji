@@ -8,3 +8,14 @@ cdk/outputs.json
 __pycache__/
 *.pyc
 .venv/
+
+# Local CDK CLI (installed via `npm install --no-save aws-cdk@latest` in cdk/)
+node_modules/
+cdk/node_modules/
+cdk/package-lock.json
+cdk/package.json
+
+# Transient synth/debug logs
+cdk/synth_err.log
+cdk/app_err.log
+cdk/e.log
