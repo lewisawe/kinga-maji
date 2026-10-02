@@ -243,7 +243,7 @@
   <script src="kinga.js"></script>
   <script>
     // Deploy pipeline rewrites this placeholder with the live API base URL.
-    const API = '__API_URL__';
+    const API = 'https://dh0959qwna.execute-api.us-east-1.amazonaws.com';
 
     function liveEmptyState(message) {
       const grid = document.getElementById('liveGrid');
@@ -293,7 +293,7 @@
 
     async function loadLive() {
       // Mirror the tool page's placeholder guard: in preview mode, degrade gracefully.
-      if (!API || API === '__API_URL__') {
+      if (!API || API === 'https://dh0959qwna.execute-api.us-east-1.amazonaws.com') {
         liveEmptyState('Live readings appear here once the app is deployed (preview mode).');
         return;
       }

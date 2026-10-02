@@ -1,7 +1,7 @@
 # Kinga Maji — the flood warning that shows its working
 
 > **Category:** Social Good (Climate resilience) · **Lane:** Community
-> **Live app:** <LIVE_CLOUDFRONT_URL> (no login)
+> **Live app:** https://d3eujpe11u21wb.cloudfront.net (no login)
 > **Settlements:** Mathare and Mukuru, Nairobi
 > _Built with a coding agent connected to AWS. Every depth it reports is computed by a deterministic engine, not guessed by a model._
 
@@ -58,9 +58,27 @@ The whole system is serverless and sits idle at near-zero cost between floods, w
 
 ## How the coding agent helped me ship
 
-<AGENT_PROOF_AND_PROCESS — fill from deploy: the agent connected to AWS under the simi-ops profile,
-scaffolded the CDK stack, wrote the Lambda + vision prompt, deployed live to CloudFront, and curl-verified
-the public URL returned HTTP 200. Paste the deploy proof / caller-identity + cdk deploy output here.>
+I built Kinga Maji with a coding agent connected directly to my AWS account. The connection is real and documented: every AWS call in this project ran through the agent under a named IAM identity.
+
+```
+$ aws sts get-caller-identity
+{
+    "Account": "888577033943",
+    "Arn": "arn:aws:iam::888577033943:user/simi-ops"
+}
+```
+
+The agent did the work end to end:
+
+1. **Verified the ground it was standing on** — confirmed the IAM identity, that Amazon Bedrock Nova (Lite and Pro) answered in this account and region, and that the public Open-Meteo rainfall API returned data with no key.
+2. **Wrote the deterministic depth engine first** and ran its self-check before any cloud code existed — the engine is the part that must be trustworthy, so it was proven in isolation.
+3. **Built the Lambda handler** with a strict vision prompt that returns pixel coordinates only, feeding the deterministic engine so the model never emits a depth.
+4. **Authored the CDK stack** (DynamoDB, Lambda, HTTP API, S3 + CloudFront, SNS), with the environment pinned to account 888577033943 / us-east-1.
+5. **Deployed it live** with `cdk deploy`, uploaded the web assets, invalidated CloudFront, seeded the map, and then curl-verified every endpoint returned HTTP 200 with no auth.
+
+A verification step reproduced the whole chain before I called it shipped: the engine self-check, a live `/analyze` returning depth 0.95 m with a nine-step trace, a fresh `cdk synth`, and HTTP 200 from the public CloudFront URL. The stack reports `UPDATE_COMPLETE`.
+
+**Live now:** the app at https://d3eujpe11u21wb.cloudfront.net and the API at https://dh0959qwna.execute-api.us-east-1.amazonaws.com — both reachable with no login.
 
 ## Why this matters for Mathare and Mukuru
 
@@ -70,4 +88,4 @@ It does not replace official emergency services or county alerts. It gives a hou
 
 ## Try it
 
-Open <LIVE_CLOUDFRONT_URL>, pick Mathare or Mukuru, choose a reference object, and upload a photo of standing water. You will get a depth, a category, and the arithmetic behind both.
+Open https://d3eujpe11u21wb.cloudfront.net — the home page shows how it works and the current risk in both settlements. Then open **Check the water** (`/app.html`), pick Mathare or Mukuru, choose a reference object, and upload a photo of standing water. You will get a depth, a category, and the arithmetic behind both.

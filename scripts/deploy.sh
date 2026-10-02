@@ -116,15 +116,18 @@ analyze_json="$(curl -s -X POST "$API_URL/analyze" -H 'content-type: application
   -d '{"demo":true,"settlement":"Mathare","reference_object":"doorframe"}')"
 echo "$analyze_json" | python3 -c 'import sys,json; d=json.load(sys.stdin); assert "depth_m" in d and d.get("trace"), "missing depth_m/trace"; print("    analyze depth_m   =", d["depth_m"], "| trace steps =", len(d["trace"]))' || { echo "    FAIL /analyze demo"; echo "$analyze_json"; fail=1; }
 
-echo "==> [9/9] Verifying CloudFront serves the API-injected map (no auth)"
+echo "==> [9/9] Verifying CloudFront serves the API-injected pages (no auth)"
 # CloudFront can briefly serve an empty/propagating body right after an
 # invalidation; retry a few times before judging the HTML checks.
+# The root is the redesigned home page (hero headline, NO map/leaflet); the
+# interactive map/leaflet lives on /app.html, which is checked separately below.
+HERO_SUBSTR="the flood warning that shows its working"
 cf_html=""
 code=""
 for attempt in 1 2 3 4 5; do
   code="$(curl -s -o /dev/null -w '%{http_code}' "$CF_URL")"
   cf_html="$(curl -s "$CF_URL")"
-  if [ "$code" = "200" ] && echo "$cf_html" | grep -qi leaflet; then
+  if [ "$code" = "200" ] && echo "$cf_html" | grep -qi "$HERO_SUBSTR"; then
     break
   fi
   echo "    (attempt $attempt: code=$code, retrying CloudFront in 5s)"
@@ -132,7 +135,7 @@ for attempt in 1 2 3 4 5; do
 done
 echo "    CloudFront root    -> $code"
 [ "$code" = "200" ] || { echo "    FAIL CloudFront root"; fail=1; }
-echo "$cf_html" | grep -qi leaflet && echo "    leaflet present    -> yes" || { echo "    FAIL leaflet missing"; fail=1; }
+echo "$cf_html" | grep -qi "$HERO_SUBSTR" && echo "    home hero present  -> yes" || { echo "    FAIL home hero headline missing"; fail=1; }
 if echo "$cf_html" | grep -q "$API_URL"; then
   echo "    injected API URL   -> yes"
 else
@@ -147,6 +150,7 @@ app_html="$(curl -s "$CF_URL/app.html")"
 app_code="$(curl -s -o /dev/null -w '%{http_code}' "$CF_URL/app.html")"
 echo "    CloudFront /app.html -> $app_code"
 [ "$app_code" = "200" ] || { echo "    FAIL CloudFront /app.html"; fail=1; }
+echo "$app_html" | grep -qi leaflet && echo "    app.html leaflet   -> yes" || { echo "    FAIL app.html leaflet missing"; fail=1; }
 if echo "$app_html" | grep -q "$API_URL"; then
   echo "    app.html injected API URL -> yes"
 else

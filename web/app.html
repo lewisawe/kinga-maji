@@ -198,7 +198,7 @@
   <script src="kinga.js"></script>
   <script>
     // Deploy pipeline rewrites this placeholder with the live API base URL.
-    const API = '__API_URL__';
+    const API = 'https://dh0959qwna.execute-api.us-east-1.amazonaws.com';
 
     const SETTLEMENTS = {
       Mathare: { lat: -1.2595, lon: 36.8580 },
@@ -314,7 +314,7 @@
     }
 
     async function postAnalyze(payload) {
-      if (!API || API === '__API_URL__') {
+      if (!API || API === 'https://dh0959qwna.execute-api.us-east-1.amazonaws.com') {
         setStatus('Live API not wired yet (preview mode). Deploy injects the real URL.', true);
         return;
       }
@@ -421,7 +421,7 @@
 
     async function loadReports() {
       const ul = document.getElementById('alerts');
-      if (!API || API === '__API_URL__') {
+      if (!API || API === 'https://dh0959qwna.execute-api.us-east-1.amazonaws.com') {
         ul.innerHTML = '<li class="note">Live alerts appear here once the app is deployed (preview mode).</li>';
         return;
       }
