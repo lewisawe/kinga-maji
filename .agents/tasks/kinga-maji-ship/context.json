@@ -1,0 +1,30 @@
+{
+  "project_type": "Serverless AWS app (Python Lambda + CDK v2 Python) with a static single-file web front-end. Hackathon submission, ship-live is pass/fail.",
+  "language": "Python 3 (Lambda handler + CDK app + engine); HTML/CSS/vanilla JS (web).",
+  "build_system": "AWS CDK v2.1033 (installed globally). CDK app is Python: create a venv in cdk/ and pip install aws-cdk-lib + constructs. No bundler for web (single inline HTML file).",
+  "test_framework": "None formal. Verification = engine self-check (python3 engine/depth_engine.py), local handler import, and post-deploy curl checks.",
+  "build_command": "cd cdk && python3 -m venv .venv && . .venv/bin/activate && pip install -r requirements.txt && cdk synth",
+  "test_command": "python3 engine/depth_engine.py  (engine self-check); python3 -c 'import handler' from lambda/ with deps stubbed",
+  "verification_instructions": "ALWAYS export AWS_PROFILE=simi-ops AWS_DEFAULT_REGION=us-east-1 before any aws/cdk command. Account is 888577033943, region us-east-1, no default region in the profile so it MUST be pinned. After deploy, curl the API /health, /reports, /analyze (demo) and the CloudFront root; all must return 200 with no auth.",
+  "snapshot_or_generated_files": "lambda/depth_engine.py is a COPY of engine/depth_engine.py produced by deploy (cp). cdk/outputs.json produced by cdk deploy --outputs-file. web/index.html has a __API_URL__ placeholder rewritten at deploy time. None of these need committing for the ship gate.",
+  "environment_constraints": "AWS profile simi-ops has NO default region: pin AWS_DEFAULT_REGION=us-east-1 everywhere and set CDK env=Environment(account='888577033943', region='us-east-1'). CDK already bootstrapped (CDKToolkit CREATE_COMPLETE). Docker is available but AVOID Docker bundling — the Lambda needs only boto3 (runtime-provided) + stdlib, so use Code.from_asset without bundling. Lambda runtime PYTHON_3_13 (local Python is 3.14; that is only the CDK app version and is fine). Keep secrets out of repo; no hardcoded credentials.",
+  "contribution_requirements": "Reuse engine/depth_engine.py AS-IS (do not rewrite). The vision LLM returns ONLY pixel coordinates + reference object name; it NEVER outputs a depth in metres. The deterministic engine computes all metres and the trace. Everything must be reachable with NO login.",
+  "key_patterns": "Bedrock vision via the Converse API: bedrock-runtime.converse(modelId='amazon.nova-lite-v1:0', messages=[{'role':'user','content':[{'image':{'format':'png'|'jpeg','source':{'bytes':raw}}},{'text':prompt}]}], inferenceConfig={'maxTokens':300,'temperature':0.0}); read resp['output']['message']['content'][0]['text']. CONFIRMED working on this account for both nova-lite and nova-pro. Open-Meteo (no key): https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&hourly=precipitation&forecast_days=1&timezone=Africa%2FNairobi then sum json['hourly']['precipitation']. HTTP API payload v2.0: route on event['requestContext']['http']['method'] and event['rawPath'].",
+  "relevant_files": [
+    "engine/depth_engine.py (READ FIRST — the locked contract; reuse as-is)",
+    ".agents/tasks/kinga-maji-ship/plan.md (full ordered plan)",
+    "lambda/handler.py (to create)",
+    "lambda/depth_engine.py (vendored copy, created by deploy)",
+    "cdk/app.py, cdk/kinga_stack.py, cdk/cdk.json, cdk/requirements.txt (to create)",
+    "web/index.html (to create)",
+    "scripts/deploy.sh (to create)"
+  ],
+  "directory_structure": "kinga-maji/ root. engine/ has the finished depth_engine.py. lambda/ web/ cdk/ are EMPTY and must be filled. .agents/tasks/kinga-maji-ship/ holds plan + FEAT artifacts.",
+  "engine_contract": {
+    "reference_heights_keys": ["doorframe", "jerrycan_20l", "car_tyre", "brick_course", "matatu_wheel"],
+    "DepthInput_fields": ["reference_object", "reference_top_px", "reference_bottom_px", "waterline_px"],
+    "compute_depth": "compute_depth(DepthInput) -> DepthResult{depth_m, reference_object, reference_height_m, submerged_fraction, category_key, category_label, consequence, trace, ok, error}; has .to_dict()",
+    "fuse_rainfall": "fuse_rainfall(DepthResult, rainfall_mm_next_24h: float) -> RiskResult{base_category, rainfall_mm_next_24h, escalated, final_label, advice, trace}"
+  },
+  "settlements": {"Mathare": [-1.2595, 36.8580], "Mukuru": [-1.3167, 36.8667]}
+}

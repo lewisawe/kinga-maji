@@ -4,6 +4,7 @@ lambda/depth_engine.py
 # CDK / build artifacts
 cdk/.venv/
 cdk/cdk.out/
+cdk/cdk.out.verify/
 cdk/outputs.json
 __pycache__/
 *.pyc
