@@ -1,7 +1,0 @@
-{
-  "task_id": "task-kinga-maji-ship",
-  "task_description": "Build and deploy the Kinga Maji serverless flood-readiness app (Lambda + Bedrock Nova vision pixel-only + reused deterministic depth engine + Open-Meteo + DynamoDB + API Gateway HTTP API + S3/CloudFront static map) LIVE on AWS (account 888577033943, us-east-1, profile simi-ops) to a public no-auth URL, and prove it live via curl. Social Good / climate resilience, Community lane.",
-  "status": "completed",
-  "feature_order": ["FEAT-001", "FEAT-002", "FEAT-003", "FEAT-004"],
-  "blocked_reason": null
-}

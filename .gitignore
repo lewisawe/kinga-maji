@@ -1,22 +1,41 @@
-# Vendored at deploy time (cp from engine/); not source of truth
-lambda/depth_engine.py
-
 # CDK / build artifacts
-cdk/.venv/
-cdk/cdk.out/
-cdk/cdk.out.verify/
+cdk.out/
+cdk.out.*/
+**/cdk.out/
+*.d.ts
+node_modules/
+cdk/node_modules/
+cdk/*.log
 cdk/outputs.json
+
+# Internal agent/workflow task artifacts (not part of the project)
+.agents/
+
+# Python
 __pycache__/
 *.pyc
 .venv/
+venv/
+*.egg-info/
 
-# Local CDK CLI (installed via `npm install --no-save aws-cdk@latest` in cdk/)
-node_modules/
-cdk/node_modules/
-cdk/package-lock.json
-cdk/package.json
+# AWS / deploy outputs that may carry account-specific values
+cdk-outputs.json
+outputs.json
+*.outputs.json
 
-# Transient synth/debug logs
-cdk/synth_err.log
-cdk/app_err.log
-cdk/e.log
+# OS / editor
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# Local secrets (none should exist, but belt-and-suspenders)
+.env
+.env.*
+*.pem
+
+# Rendered cover source stays; large transient renders ignored
+cover.html
+
+# internal note
+PENDING_REPO_PREP.md

@@ -72,3 +72,29 @@ Rule: a result card, a map marker, and the alert panel all take their color from
 - `index.html` — HOME / landing (hero, how-it-works, live proof via /reports, CTA → app)
 - `app.html` — the tool (Leaflet map, settlement + reference picker, photo upload, risk-colored result + full trace, latest alerts)
 - Shared header: brand (water-drop + "Kinga Maji") + nav (Home · Check the water). No login anywhere.
+
+
+---
+## Known fix (2026-10-02): preview-guard inversion
+deploy.sh does a blanket `html.replace("__API_URL__", api)`, which also rewrote the token inside the
+preview-mode guard comparisons, inverting them so the LIVE site always took the preview branch and never
+fetched the API. Fixed by comparing against a FRAGMENTED sentinel the blanket replace cannot match:
+`var API_PLACEHOLDER = '__API' + '_URL__';` then `if (!API || API === API_PLACEHOLDER)`. The `const API = '__API_URL__'`
+assignment line stays a plain token so deploy.sh still injects the real URL. Applies to all 3 guards
+(index loadLive, app analyze, app alerts). Rule for future front-end edits: never compare against a literal
+`__API_URL__` token — always use the fragmented sentinel.
+
+
+## Known fix (2026-10-02): Leaflet map "Map unavailable offline" = stale SRI hash
+Symptom: app.html map showed the catch-fallback "Map unavailable offline." Root cause: the page pinned
+leaflet@1.9.4 but carried the leaflet **1.9.3** integrity hash (sha256-o9N1jGDZ...). The browser's
+Subresource Integrity gate computed a different hash for the 1.9.4 file and REFUSED to execute leaflet.js,
+so `L` was undefined and `L.map()` threw into the catch. Fix: set the integrity to the real 1.9.4 hash
+`sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=` (verified: the live leaflet.js file hash == this value).
+Rule: when pinning a CDN asset with SRI, the integrity hash MUST match that exact version's file. If you bump
+the version, recompute the hash (`curl -s <url> | openssl dgst -sha256 -binary | openssl base64`), or drop the
+integrity attr. The CSS hash (p4Nx...) was already correct.
+
+Also: deploy.sh step [9/9] verifier can report false "leaflet missing"/"hero missing" FAILs right after an
+invalidation when CloudFront briefly serves a propagating body — a verifier timing artifact, not a site fault.
+Tightened to retry both pages together; the authoritative check is a direct curl of the live URL after settle.
