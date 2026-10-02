@@ -73,6 +73,8 @@
     .live-card .lc-time { color: var(--color-muted-foreground); font-size: 0.78rem; }
     .live-card .lc-depth { font-family: 'Fira Code', monospace; font-size: 1.5rem; font-weight: 700; margin: 10px 0 2px; }
     .live-card .lc-label { font-size: 0.95rem; font-weight: 500; }
+    .live-card .lc-rain { font-family: 'Fira Code', monospace; font-size: 0.82rem; color: var(--color-muted-foreground); margin-top: 8px; }
+    .live-card .lc-rain72 { display: block; font-family: 'Fira Code', monospace; font-size: 0.78rem; color: var(--color-muted-foreground); margin-top: 2px; }
     .live-card .dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; border: 1px solid rgba(6,78,59,.25); }
     .live-empty {
       border: 1px dashed var(--color-border); border-radius: var(--radius);
@@ -167,13 +169,13 @@
           <div class="step">
             <span class="step-icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 256 256" fill="currentColor"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm-8,56a8,8,0,0,1,16,0v56a8,8,0,0,1-16,0Zm8,104a12,12,0,1,1,12-12A12,12,0,0,1,128,184Z"/></svg></span>
             <h3>4. Rainfall + warning</h3>
-            <p>Depth is fused with rainfall into a clear risk level, from passable to evacuate.</p>
+            <p>Depth is fused with <strong>real per-location Open-Meteo rainfall</strong>, pulled at each settlement's own coordinates — Mathare (−1.26, 36.86) and Mukuru (−1.32, 36.87) — then a deterministic escalation rule raises the risk one notch when the forecast is heavy over standing water.</p>
           </div>
         </div>
 
         <div class="provable-note">
           <svg width="22" height="22" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M173.66,98.34a8,8,0,0,1,0,11.32l-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35A8,8,0,0,1,173.66,98.34ZM232,128A104,104,0,1,1,128,24,104.11,104.11,0,0,1,232,128Zm-16,0a88,88,0,1,0-88,88A88.1,88.1,0,0,0,216,128Z"/></svg>
-          <span>Every number is <span class="mono">computed and traced</span>, never guessed. The result card shows the full arithmetic, step by step.</span>
+          <span>Every number is <span class="mono">computed and traced</span>, never guessed. The result card shows the full arithmetic, step by step. Rainfall is <span class="mono">real Open-Meteo data</span> fetched per settlement, feeding a deterministic escalation rule.</span>
         </div>
       </div>
     </section>
@@ -251,6 +253,13 @@
     // fetch runs.
     const API_PLACEHOLDER = '__API' + '_URL__';
 
+    // Byte-identical to app.html / lambda handler SETTLEMENTS — used only to
+    // fetch recent-72h rainfall from Open-Meteo per settlement for the cards.
+    const SETTLEMENTS = {
+      Mathare: { lat: -1.2595, lon: 36.8580 },
+      Mukuru:  { lat: -1.3167, lon: 36.8667 }
+    };
+
     function liveEmptyState(message) {
       const grid = document.getElementById('liveGrid');
       const empty = document.getElementById('liveEmpty');
@@ -283,15 +292,31 @@
         const card = document.createElement('div');
         card.className = 'live-card';
         card.style.borderLeftColor = color;
+        const sName = r.settlement || 'Unknown';
+        const rain72Id = 'lc-rain72-' + sName.replace(/[^A-Za-z0-9]/g, '');
         card.innerHTML =
           '<div class="lc-top">' +
             '<span class="lc-settlement"><span class="dot" style="background:' + color + '"></span>' +
-              (r.settlement || 'Unknown') + '</span>' +
+              sName + '</span>' +
             '<span class="lc-time">' + Kinga.timeAgo(r.timestamp) + '</span>' +
           '</div>' +
           '<div class="lc-depth" style="color:' + color + '">' + depth + '</div>' +
-          '<div class="lc-label">' + label + '</div>';
+          '<div class="lc-label">' + label + '</div>' +
+          '<div class="lc-rain">Rain 24h: ' + Kinga.fmtMm(r.rainfall_mm) +
+            '<span class="lc-rain72" id="' + rain72Id + '"></span></div>';
         grid.appendChild(card);
+
+        // Recent-72h rainfall from the FREE no-key Open-Meteo forecast API
+        // (third-party, CORS-open), using this settlement's own coords. Fills
+        // the line only when a real number resolves; silent on error.
+        const sc = SETTLEMENTS[sName];
+        if (sc) {
+          Kinga.recentRainfallMm(sc.lat, sc.lon).then(function (mm) {
+            if (mm == null) return;
+            const el = document.getElementById(rain72Id);
+            if (el) el.textContent = 'Last 72h: ' + Kinga.fmtMm(mm) + ' (Open-Meteo)';
+          });
+        }
       });
       empty.style.display = 'none';
       grid.style.display = '';

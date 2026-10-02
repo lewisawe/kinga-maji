@@ -51,6 +51,10 @@
     .result-head svg { flex: none; }
     .result-body { padding: 16px 18px; }
     .result-body .advice { margin: 0 0 4px; font-size: 1rem; }
+    .rain-corr {
+      margin: 10px 0 0; font-family: 'Fira Code', monospace; font-size: 0.84rem;
+      color: var(--color-muted-foreground); line-height: 1.5;
+    }
     .trace-wrap { margin-top: 16px; }
     .trace-wrap h3 { font-size: 0.95rem; margin: 0 0 8px; display: flex; align-items: center; gap: 6px; }
     ol.trace {
@@ -157,6 +161,7 @@
                 </div>
                 <div class="result-body">
                   <p class="advice" id="advice"></p>
+                  <p class="rain-corr" id="rainCorr" style="display:none;"></p>
                   <div class="trace-wrap">
                     <h3>
                       <svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,160H40V56H216V200ZM88,96a8,8,0,0,1,8-8h80a8,8,0,0,1,0,16H96A8,8,0,0,1,88,96Zm0,32a8,8,0,0,1,8-8h80a8,8,0,0,1,0,16H96A8,8,0,0,1,88,128Zm0,32a8,8,0,0,1,8-8h80a8,8,0,0,1,0,16H96A8,8,0,0,1,88,160ZM60,96a8,8,0,1,1,8,8A8,8,0,0,1,60,96Zm0,32a8,8,0,1,1,8,8A8,8,0,0,1,60,128Zm0,32a8,8,0,1,1,8,8A8,8,0,0,1,60,160Z"/></svg>
@@ -235,7 +240,8 @@
           radius: 13, color: '#064E3B', weight: 2,
           fillColor: colorFor('unknown'), fillOpacity: 0.9
         }).addTo(map);
-        m.bindPopup('<b>' + name + '</b><br>Awaiting latest report…');
+        m._kingaBasePopup = '<b>' + name + '</b><br>Awaiting latest report…';
+        m.bindPopup(m._kingaBasePopup);
         markers[name] = m;
       });
     } catch (e) {
@@ -244,17 +250,52 @@
       if (el) { el.innerHTML = '<p style="padding:14px;color:var(--color-muted-foreground)">Map unavailable offline.</p>'; }
     }
 
+    // Fix the classic Leaflet grey/partial-tiles bug: L.map() ran before the
+    // browser finished laying out #map, so Leaflet cached a wrong container size.
+    // Force it to re-measure once layout settles. All idempotent — calling
+    // invalidateSize repeatedly is safe.
+    if (map) {
+      requestAnimationFrame(function () { if (map) map.invalidateSize(); });
+      window.addEventListener('load', function () { if (map) map.invalidateSize(); });
+      setTimeout(function () { if (map) map.invalidateSize(); }, 0);
+      setTimeout(function () { if (map) map.invalidateSize(); }, 250);
+      // Re-measure whenever the map container becomes visible or resizes.
+      if (typeof ResizeObserver !== 'undefined') {
+        try {
+          var _ro = new ResizeObserver(function () { if (map) map.invalidateSize(); });
+          _ro.observe(document.getElementById('map'));
+        } catch (e) { /* ignore */ }
+      }
+
+      // Recent-72h rainfall per settlement from the FREE no-key Open-Meteo
+      // forecast API (third-party, CORS-open) — runs independently of OUR API,
+      // so it works even in preview mode. Appends to each marker popup when a
+      // real number resolves; shows nothing on error (never fabricates).
+      Object.keys(SETTLEMENTS).forEach(function (name) {
+        var s = SETTLEMENTS[name];
+        Kinga.recentRainfallMm(s.lat, s.lon).then(function (mm) {
+          if (mm == null) return;
+          var m = markers[name];
+          if (!m) return;
+          m._kinga72 = '<br>Last 72h: ' + Kinga.fmtMm(mm) + ' (Open-Meteo)';
+          m.bindPopup((m._kingaBasePopup ||
+            ('<b>' + name + '</b><br>Awaiting latest report…')) + m._kinga72);
+        });
+      });
+    }
+
     function setMarker(name, report) {
       const m = markers[name];
       if (!m) return;
       m.setStyle({ fillColor: colorFor(report.category_key) });
       const depth = (report.depth_m != null) ? Number(report.depth_m).toFixed(2) + ' m' : '—';
-      m.bindPopup(
+      m._kingaBasePopup =
         '<b>' + name + '</b><br>' +
         '<b>' + (report.final_label || report.category_key || 'Unknown') + '</b><br>' +
         (report.advice || '') + '<br>' +
-        'Depth: ' + depth
-      );
+        'Depth: ' + depth + '<br>' +
+        'Rain 24h: ' + Kinga.fmtMm(report.rainfall_mm);
+      m.bindPopup(m._kingaBasePopup + (m._kinga72 || ''));
     }
 
     // ----- Result rendering -----
@@ -272,6 +313,25 @@
       depthEl.textContent = depthM;
       labelEl.textContent = data.final_label || data.category_label || labelFor(data.category_key) || '';
       adviceEl.textContent = data.advice || '';
+
+      // Honest rainfall<->location<->risk correlation line, built from the
+      // /analyze response fields (rainfall_mm number, lat/lon numbers, escalated).
+      // Keeps the full trace below intact.
+      const rainCorrEl = document.getElementById('rainCorr');
+      if (rainCorrEl) {
+        const rainTxt = Kinga.fmtMm(data.rainfall_mm);
+        const latN = Number(data.lat), lonN = Number(data.lon);
+        const coords = (isFinite(latN) && isFinite(lonN))
+          ? ' (' + latN.toFixed(2) + ', ' + lonN.toFixed(2) + ')' : '';
+        const where = (data.settlement || '') + coords;
+        if (data.escalated) {
+          rainCorrEl.textContent = 'Rain next 24h at ' + where + ': ' + rainTxt +
+            ' — escalated to ' + (data.final_label || labelFor(data.category_key) || 'higher risk');
+        } else {
+          rainCorrEl.textContent = 'Rain next 24h at ' + where + ': ' + rainTxt + ' — no escalation';
+        }
+        rainCorrEl.style.display = '';
+      }
 
       // Color card + head by category_key — but label + metres above always show it too.
       const key = data.category_key;
@@ -303,7 +363,8 @@
           category_key: data.category_key,
           final_label: data.final_label,
           advice: data.advice,
-          depth_m: data.depth_m
+          depth_m: data.depth_m,
+          rainfall_mm: data.rainfall_mm
         });
       }
     }
@@ -419,7 +480,7 @@
             '<span class="a-time">' + timeAgo(r.timestamp) + '</span>' +
           '</div>' +
           '<div class="a-label">' + (r.final_label || r.category_key || '') +
-            ' <span class="a-metres">· ' + depth + '</span></div>' +
+            ' <span class="a-metres">· ' + depth + ' · rain ' + Kinga.fmtMm(r.rainfall_mm) + '</span></div>' +
           '<div class="a-advice">' + (r.advice || '') + '</div>';
         ul.appendChild(li);
       });

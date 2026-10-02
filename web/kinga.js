@@ -67,11 +67,65 @@
     } catch (e) { return iso; }
   }
 
+  // Format a rainfall value in mm honestly: 0 -> "0 mm", 31 -> "31 mm",
+  // 12.4 -> "12.4 mm", null/NaN -> "—". Never fabricates a number.
+  function fmtMm(n) {
+    if (n == null) return '—';
+    var v = Number(n);
+    if (!isFinite(v)) return '—';
+    return v.toFixed(v % 1 ? 1 : 0) + ' mm';
+  }
+
+  // Recent rainfall (last ~72h) in mm for a lat/lon, pulled LIVE from the FREE,
+  // no-key Open-Meteo forecast API (third-party origin, CORS-open). Returns a
+  // Promise<number|null>: a finite summed total on success, or null on ANY
+  // network/parse error. Never throws, never fabricates. Coerces string coords.
+  function recentRainfallMm(lat, lon) {
+    var la = Number(lat), lo = Number(lon);
+    if (!isFinite(la) || !isFinite(lo)) return Promise.resolve(null);
+    var url = 'https://api.open-meteo.com/v1/forecast' +
+      '?latitude=' + encodeURIComponent(la) +
+      '&longitude=' + encodeURIComponent(lo) +
+      '&hourly=precipitation&past_days=3&forecast_days=1' +
+      '&timezone=Africa%2FNairobi';
+    return fetch(url).then(function (res) {
+      if (!res.ok) return null;
+      return res.json();
+    }).then(function (data) {
+      if (!data || !data.hourly) return null;
+      var times = data.hourly.time;
+      var precip = data.hourly.precipitation;
+      if (!Array.isArray(times) || !Array.isArray(precip)) return null;
+      var now = Date.now();
+      // Keep only entries whose timestamp is <= now, then the last 72 of those.
+      var past = [];
+      for (var i = 0; i < times.length && i < precip.length; i++) {
+        var t = new Date(times[i]).getTime();
+        if (!isNaN(t) && t <= now) {
+          past.push(precip[i]);
+        }
+      }
+      if (past.length === 0) return null;
+      var recent = past.slice(-72);
+      var sum = 0, seen = false;
+      for (var j = 0; j < recent.length; j++) {
+        var v = Number(recent[j]);
+        if (isFinite(v)) { sum += v; seen = true; }
+      }
+      if (!seen) return null;
+      return Math.round(sum * 10) / 10;
+    }).catch(function () {
+      return null;
+    });
+  }
+
   global.Kinga = {
     CATEGORY: CATEGORY,
     riskColor: riskColor,
     riskInk: riskInk,
     riskLabel: riskLabel,
-    timeAgo: timeAgo
+    timeAgo: timeAgo,
+    fmtMm: fmtMm,
+    recentRainfallMm: recentRainfallMm
   };
 })(window);
