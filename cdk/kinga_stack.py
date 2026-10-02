@@ -71,6 +71,11 @@ class KingaStack(Stack):
             code=lambda_.Code.from_asset(LAMBDA_ASSET),
             timeout=Duration.seconds(30),
             memory_size=512,
+            # NOTE: reserved concurrency is intentionally NOT set. This account's
+            # total Lambda concurrency limit is 10, and AWS requires >=10 unreserved,
+            # so any reservation is rejected. The account-wide cap of 10 already
+            # bounds parallel Bedrock calls; API Gateway throttling (below) is the
+            # primary abuse guard.
             environment={
                 "TABLE_NAME": table.table_name,
                 "SNS_TOPIC_ARN": topic.topic_arn,
@@ -113,6 +118,18 @@ class KingaStack(Stack):
         ]
         for path, method in routes:
             http_api.add_routes(path=path, methods=[method], integration=integration)
+
+        # --- Throttling on the default stage (abuse / cost guard) ---------
+        # The HTTP API auto-creates the "$default" stage. Cap request rate so a
+        # script cannot brute-force /analyze (each call is a paid Bedrock
+        # inference). 20 req/s steady, 40 burst is ample for real use and the
+        # demo, while bounding cost. Applied via the L1 escape hatch for
+        # version-stable default-route throttling.
+        cfn_stage = http_api.default_stage.node.default_child
+        cfn_stage.default_route_settings = apigwv2.CfnStage.RouteSettingsProperty(
+            throttling_rate_limit=20,
+            throttling_burst_limit=40,
+        )
 
         # --- EventBridge: hourly autonomous watcher (ADDITIVE) ------------
         # Invoke the SAME Lambda on a synthetic /watch event every hour. The

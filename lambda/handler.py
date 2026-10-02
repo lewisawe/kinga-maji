@@ -45,6 +45,8 @@ SETTLEMENTS: dict[str, tuple[float, float]] = {
 MODEL_ID = os.environ.get("MODEL_ID", "amazon.nova-lite-v1:0")
 TABLE_NAME = os.environ.get("TABLE_NAME", "reports")
 SNS_TOPIC_ARN = os.environ.get("SNS_TOPIC_ARN", "")
+# Reject uploads larger than this before invoking Bedrock (abuse / cost guard).
+MAX_IMAGE_BYTES = int(os.environ.get("MAX_IMAGE_BYTES", str(5 * 1024 * 1024)))  # ~5 MB
 
 # Strict pixel-only prompt. The model returns ONLY pixel coordinates + the reference
 # object name; it NEVER outputs a depth or any unit in metres. The engine does the maths.
@@ -296,6 +298,12 @@ def _analyze(event: dict) -> dict:
             raw = base64.b64decode(body["image_base64"])
         except Exception:
             return _resp(400, {"ok": False, "error": "image_base64 is not valid base64."})
+        # Reject oversized uploads BEFORE paying for a Bedrock call (abuse / cost guard).
+        if len(raw) > MAX_IMAGE_BYTES:
+            return _resp(413, {
+                "ok": False,
+                "error": f"Image too large ({len(raw)} bytes). Max {MAX_IMAGE_BYTES} bytes (~5 MB).",
+            })
         fmt = "png" if raw[:8] == b"\x89PNG\r\n\x1a\n" else "jpeg"
         try:
             top, bottom, waterline = vision(raw, fmt, reference_object)
