@@ -243,7 +243,13 @@
   <script src="kinga.js"></script>
   <script>
     // Deploy pipeline rewrites this placeholder with the live API base URL.
-    const API = 'https://dh0959qwna.execute-api.us-east-1.amazonaws.com';
+    const API = '__API_URL__';
+    // Replacement-proof sentinel: reconstructed from fragments so the deploy
+    // step's blanket placeholder-to-real-URL replace cannot rewrite it. The raw
+    // placeholder assignment above DOES equal this before deploy (preview mode);
+    // after deploy, API becomes the real URL and no longer matches, so the real
+    // fetch runs.
+    const API_PLACEHOLDER = '__API' + '_URL__';
 
     function liveEmptyState(message) {
       const grid = document.getElementById('liveGrid');
@@ -293,7 +299,7 @@
 
     async function loadLive() {
       // Mirror the tool page's placeholder guard: in preview mode, degrade gracefully.
-      if (!API || API === 'https://dh0959qwna.execute-api.us-east-1.amazonaws.com') {
+      if (!API || API === API_PLACEHOLDER) {
         liveEmptyState('Live readings appear here once the app is deployed (preview mode).');
         return;
       }
