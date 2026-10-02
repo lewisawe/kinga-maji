@@ -162,6 +162,70 @@ h1, h2, h3 { line-height: 1.15; font-weight: 700; letter-spacing: -0.01em; margi
   .nav a svg { width: 20px; height: 20px; }
 }
 
+/* ---- worked example (home: "see how it works") ---- */
+.worked-grid {
+  display: grid; grid-template-columns: 1fr; gap: 20px; margin-top: 24px;
+  align-items: stretch;
+}
+@media (min-width: 720px) { .worked-grid { grid-template-columns: 1fr 1fr; gap: 24px; } }
+
+.worked-panel {
+  background: var(--color-card); color: var(--color-card-foreground);
+  border: 1px solid var(--color-border); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card); padding: 20px;
+  display: flex; flex-direction: column;
+}
+.worked-panel .panel-eyebrow {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 0.78rem; font-weight: 600; letter-spacing: 0.03em;
+  text-transform: uppercase; color: var(--color-primary); margin: 0 0 12px;
+}
+.worked-panel .panel-eyebrow svg { color: var(--color-primary); flex: none; }
+
+/* diagram panel */
+.worked-diagram { display: block; width: 100%; height: auto; border-radius: var(--radius); }
+.worked-caption {
+  margin: 12px 0 0; font-size: 0.85rem; color: var(--color-muted-foreground);
+  display: flex; gap: 8px; align-items: flex-start;
+}
+.worked-caption svg { color: var(--color-primary); flex: none; margin-top: 1px; }
+
+/* trace panel */
+.trace-list {
+  list-style: none; counter-reset: step; margin: 0; padding: 0;
+  font-family: 'Fira Code', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-ligatures: none; font-size: 0.82rem; line-height: 1.55;
+}
+.trace-list li {
+  counter-increment: step; position: relative;
+  padding: 8px 10px 8px 40px; border-radius: 10px;
+  color: var(--color-foreground); background: var(--color-muted);
+  margin-bottom: 8px; word-break: break-word;
+}
+.trace-list li::before {
+  content: counter(step); position: absolute; left: 8px; top: 8px;
+  width: 22px; height: 22px; border-radius: 7px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 0.72rem; font-weight: 700;
+  background: var(--color-primary); color: var(--color-on-primary);
+}
+.trace-result {
+  margin-top: auto; padding-top: 16px;
+}
+.trace-chip {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 10px 16px; border-radius: 999px;
+  background: var(--risk-evacuate); color: var(--color-on-risk);
+  font-family: 'Fira Code', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 700; font-size: 0.95rem;
+}
+.trace-chip svg { color: var(--color-on-risk); flex: none; }
+.trace-recompute {
+  margin: 12px 0 0; font-size: 0.88rem; color: var(--color-foreground);
+  display: flex; gap: 8px; align-items: flex-start;
+}
+.trace-recompute svg { color: var(--color-primary); flex: none; margin-top: 2px; }
+
 /* ---- reduced motion ---- */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

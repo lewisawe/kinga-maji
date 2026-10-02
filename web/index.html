@@ -180,6 +180,109 @@
       </div>
     </section>
 
+    <!-- See how it works — worked example (static, always renders) -->
+    <section class="section" id="worked">
+      <div class="container">
+        <span class="eyebrow">See how it works</span>
+        <h2>Every depth is computed, not guessed — here&rsquo;s the arithmetic</h2>
+        <p class="lead">One real measurement, start to finish. The model only located the pixels; the diagram and the trace below are the exact deterministic steps that turn them into metres. Follow it, or recompute it by hand.</p>
+
+        <div class="worked-grid">
+          <!-- LEFT: annotated method diagram (self-contained SVG, not a photo) -->
+          <div class="worked-panel">
+            <span class="panel-eyebrow">
+              <svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M232,208a8,8,0,0,1-8,8H32a8,8,0,0,1-8-8V48a8,8,0,0,1,16,0V156.69l50.34-50.35a8,8,0,0,1,11.32,0L128,132.69,180.69,80H160a8,8,0,0,1,0-16h40a8,8,0,0,1,8,8v40a8,8,0,0,1-16,0V91.31l-58.34,58.35a8,8,0,0,1-11.32,0L96,123.31,40,179.31V200H224A8,8,0,0,1,232,208Z"/></svg>
+              The method
+            </span>
+            <svg class="worked-diagram" viewBox="0 0 420 320" role="img"
+                 aria-label="Diagram of the depth method: a doorframe 2.03 metres tall stands in flood water. The full reference pixel span from top to bottom is 500 pixels. A waterline crosses the frame; the submerged span from the waterline down to the bottom is 235 pixels, shaded in the dark-red evacuate risk colour. Dividing the submerged pixels by the pixels-per-metre scale gives a flood depth of 0.95 metres.">
+              <defs>
+                <linearGradient id="waterFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0" stop-color="#7F1D1D" stop-opacity="0.55"/>
+                  <stop offset="1" stop-color="#7F1D1D" stop-opacity="0.78"/>
+                </linearGradient>
+              </defs>
+              <!-- decorative scene, described by the parent aria-label -->
+              <g aria-hidden="true">
+                <!-- ground -->
+                <rect x="0" y="300" width="420" height="20" fill="#A7F3D0"/>
+                <!-- submerged water shade (waterline y=168 -> bottom y=300 = 47% of the 280px frame) -->
+                <rect x="40" y="168" width="300" height="132" fill="url(#waterFill)"/>
+                <!-- water surface line -->
+                <line x1="40" y1="168" x2="340" y2="168" stroke="#7F1D1D" stroke-width="2.5" stroke-dasharray="7 5"/>
+
+                <!-- doorframe (reference object): top y=20, bottom y=300 -->
+                <!-- left post -->
+                <rect x="150" y="20" width="18" height="280" rx="4" fill="#064E3B"/>
+                <!-- right post -->
+                <rect x="232" y="20" width="18" height="280" rx="4" fill="#064E3B"/>
+                <!-- lintel -->
+                <rect x="150" y="20" width="100" height="18" rx="4" fill="#064E3B"/>
+                <!-- door panel (lighter, inside the frame) -->
+                <rect x="168" y="38" width="64" height="262" fill="#ECFDF5" opacity="0.6"/>
+
+                <!-- full reference span bracket (left side), top->bottom -->
+                <line x1="104" y1="20" x2="104" y2="300" stroke="#059669" stroke-width="2"/>
+                <line x1="99" y1="20" x2="109" y2="20" stroke="#059669" stroke-width="2"/>
+                <line x1="99" y1="300" x2="109" y2="300" stroke="#059669" stroke-width="2"/>
+
+                <!-- submerged span bracket (right side), waterline->bottom -->
+                <line x1="296" y1="168" x2="296" y2="300" stroke="#7F1D1D" stroke-width="2"/>
+                <line x1="291" y1="168" x2="301" y2="168" stroke="#7F1D1D" stroke-width="2"/>
+                <line x1="291" y1="300" x2="301" y2="300" stroke="#7F1D1D" stroke-width="2"/>
+              </g>
+
+              <!-- callout labels (text; still inside role=img, parent label covers them) -->
+              <g aria-hidden="true" font-family="'Fira Code', monospace">
+                <!-- reference height -->
+                <text x="30" y="150" transform="rotate(-90 30 150)" text-anchor="middle"
+                      font-size="13" font-weight="700" fill="#064E3B">2.03 m documented</text>
+                <text x="118" y="165" transform="rotate(-90 118 165)" text-anchor="middle"
+                      font-size="11" fill="#059669">reference span 500 px</text>
+                <!-- waterline -->
+                <text x="44" y="161" font-size="11" font-weight="700" fill="#7F1D1D">waterline</text>
+                <!-- submerged span -->
+                <text x="310" y="228" font-size="11" font-weight="700" fill="#7F1D1D">submerged</text>
+                <text x="310" y="242" font-size="11" font-weight="700" fill="#7F1D1D">235 px</text>
+              </g>
+            </svg>
+            <p class="worked-caption">
+              <svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm-4,48a12,12,0,1,1-12,12A12,12,0,0,1,124,72Zm12,112a16,16,0,0,1-16-16V128a8,8,0,0,1,0-16,16,16,0,0,1,16,16v40a8,8,0,0,1,0,16Z"/></svg>
+              A diagram of how a depth is computed from one reference object — not a photo. The arithmetic is the same for any uploaded image.
+            </p>
+          </div>
+
+          <!-- RIGHT: the exact deterministic trace, as evidence -->
+          <div class="worked-panel">
+            <span class="panel-eyebrow">
+              <svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M200,32H56A24,24,0,0,0,32,56V200a24,24,0,0,0,24,24H200a24,24,0,0,0,24-24V56A24,24,0,0,0,200,32Zm-88,96a8,8,0,0,1-8,8H88v16h16a8,8,0,0,1,0,16H88v16a8,8,0,0,1-16,0V104a8,8,0,0,1,8-8h28A8,8,0,0,1,112,104Zm72,48a8,8,0,0,1-8,8H152a8,8,0,0,1-8-8V104a8,8,0,0,1,16,0v40h16A8,8,0,0,1,184,152Z"/></svg>
+              The deterministic trace
+            </span>
+            <ol class="trace-list" aria-label="Deterministic engine trace for the worked example">
+              <li>Reference object = doorframe, documented height H = 2.030 m</li>
+              <li>Reference pixel span = bottom(600) - top(100) = 500 px</li>
+              <li>Scale = 500 px / 2.030 m = 246.3 px per metre</li>
+              <li>Submerged span = bottom(600) - waterline(365) = 235 px</li>
+              <li>Depth = 235 px / 246.3 px/m = 0.95 m (47.0% of the reference submerged)</li>
+              <li>Depth 0.95 m falls in [0.90, 99.00) m -&gt; category 'evacuate' (Evacuate)</li>
+              <li>Forecast rainfall next 24h = 0.0 mm (Open-Meteo)</li>
+              <li>Rule: no escalation (threshold not met)</li>
+            </ol>
+            <div class="trace-result">
+              <span class="trace-chip">
+                <svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M240.26,186.1,152.81,34.23h0a28.74,28.74,0,0,0-49.62,0L15.74,186.1a27.45,27.45,0,0,0,0,27.71A28.31,28.31,0,0,0,40.55,228h174.9a28.31,28.31,0,0,0,24.78-14.19A27.45,27.45,0,0,0,240.26,186.1ZM120,104a8,8,0,0,1,16,0v40a8,8,0,0,1-16,0Zm8,88a12,12,0,1,1,12-12A12,12,0,0,1,128,192Z"/></svg>
+                depth 0.95 m · Evacuate
+              </span>
+              <p class="trace-recompute">
+                <svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M173.66,98.34a8,8,0,0,1,0,11.32l-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35A8,8,0,0,1,173.66,98.34ZM232,128A104,104,0,1,1,128,24,104.11,104.11,0,0,1,232,128Zm-16,0a88,88,0,1,0-88,88A88.1,88.1,0,0,0,216,128Z"/></svg>
+                The model only located the pixels. Every metre was computed here, and you can recompute it by hand.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- Live now -->
     <section class="section-tight" id="live">
       <div class="container">
