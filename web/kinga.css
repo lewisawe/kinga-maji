@@ -226,6 +226,88 @@ h1, h2, h3 { line-height: 1.15; font-weight: 700; letter-spacing: -0.01em; margi
 }
 .trace-recompute svg { color: var(--color-primary); flex: none; margin-top: 2px; }
 
+/* ---- latest autonomous alerts (home page; deduped, severity hierarchy) ----
+   One card per settlement, newest wins (dedupe in index.html). Severity drives
+   visual weight: dangerous/evacuate dominate, nuisance/ankle recede. Color is
+   never the only signal — the text label + Fira Code metres stay visible, and
+   the ink stays deep-green on the low-alpha risk tint for >=4.5:1 contrast. */
+.alerts-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.alerts-note {
+  margin: 12px 0 0; font-size: 0.86rem; color: var(--color-muted-foreground);
+  display: flex; gap: 8px; align-items: flex-start;
+}
+.alerts-note svg { color: var(--color-primary); flex: none; margin-top: 3px; }
+.alerts-note a { color: var(--color-primary); font-weight: 600; }
+
+.alerts-list {
+  list-style: none; margin: 20px 0 0; padding: 0;
+  display: grid; grid-template-columns: 1fr; gap: 16px;
+}
+@media (min-width: 760px) { .alerts-list { grid-template-columns: repeat(2, 1fr); } }
+
+/* Base card — generous padding, clear vertical rhythm so nothing is cramped. */
+.alert-card {
+  --ac-risk: var(--risk-neutral);
+  border: 1px solid var(--color-border);
+  border-left: 5px solid var(--ac-risk);
+  border-radius: var(--radius); background: var(--color-card);
+  padding: 20px 22px;
+  display: flex; flex-direction: column; gap: 6px;
+  transition: box-shadow var(--ease), border-color var(--ease);
+}
+.alert-card .ac-top {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 10px; margin-bottom: 2px;
+}
+.alert-card .ac-settlement {
+  font-weight: 600; font-size: 0.98rem;
+  display: inline-flex; align-items: center; gap: 8px;
+}
+.alert-card .ac-time { color: var(--color-muted-foreground); font-size: 0.78rem; white-space: nowrap; }
+.alert-card .ac-label {
+  font-size: 1.2rem; font-weight: 700; line-height: 1.2;
+  letter-spacing: -0.01em; margin: 2px 0 0;
+}
+.alert-card .ac-metres {
+  font-family: 'Fira Code', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.86rem; color: var(--color-foreground); font-weight: 500;
+}
+.alert-card .ac-message {
+  font-size: 0.82rem; color: var(--color-muted-foreground);
+  margin-top: 6px; line-height: 1.55;
+}
+.alert-card .dot {
+  display: inline-block; width: 12px; height: 12px; border-radius: 50%;
+  border: 1px solid rgba(6, 78, 59, .25);
+}
+
+/* Critical (dangerous/evacuate) — dominant: thick border + low-alpha tint. */
+.alert-card.sev-critical {
+  border-left-width: 9px;
+  border-color: color-mix(in srgb, var(--ac-risk) 35%, var(--color-border));
+  background: linear-gradient(0deg,
+    color-mix(in srgb, var(--ac-risk) 9%, var(--color-card)),
+    color-mix(in srgb, var(--ac-risk) 9%, var(--color-card)));
+  box-shadow: var(--shadow-card);
+}
+/* Elevated (impassable_boda) — mid weight, lighter tint. */
+.alert-card.sev-elevated {
+  border-left-width: 7px;
+  background: linear-gradient(0deg,
+    color-mix(in srgb, var(--ac-risk) 5%, var(--color-card)),
+    color-mix(in srgb, var(--ac-risk) 5%, var(--color-card)));
+}
+/* Low (nuisance/ankle) — recedes: thin border, no tint, quieter label. */
+.alert-card.sev-low { border-left-width: 4px; background: var(--color-card); }
+.alert-card.sev-low .ac-label { font-size: 1.05rem; font-weight: 600; }
+
+.alerts-empty {
+  border: 1px dashed var(--color-border); border-radius: var(--radius);
+  padding: 24px; text-align: center; color: var(--color-muted-foreground);
+  background: var(--color-card); margin-top: 20px;
+}
+.alerts-empty svg { color: var(--color-primary); margin-bottom: 8px; }
+
 /* ---- reduced motion ---- */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

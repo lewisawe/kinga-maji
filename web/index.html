@@ -93,26 +93,10 @@
     .trust-item p { margin: 0; color: var(--color-muted-foreground); font-size: 0.9rem; }
 
     /* ---- latest autonomous alerts ---- */
-    .alerts-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-    .alerts-list { list-style: none; margin: 20px 0 0; padding: 0; display: grid; grid-template-columns: 1fr; gap: 12px; }
-    @media (min-width: 760px) { .alerts-list { grid-template-columns: repeat(2, 1fr); } }
-    .alert-card {
-      border: 1px solid var(--color-border); border-left: 7px solid var(--risk-neutral);
-      border-radius: var(--radius); background: var(--color-card); padding: 16px;
-    }
-    .alert-card .ac-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
-    .alert-card .ac-settlement { font-weight: 600; display: inline-flex; align-items: center; gap: 8px; }
-    .alert-card .ac-time { color: var(--color-muted-foreground); font-size: 0.78rem; white-space: nowrap; }
-    .alert-card .ac-label { font-size: 0.98rem; font-weight: 600; margin: 8px 0 2px; }
-    .alert-card .ac-metres { font-family: 'Fira Code', monospace; font-size: 0.82rem; color: var(--color-muted-foreground); }
-    .alert-card .ac-message { font-size: 0.84rem; color: var(--color-muted-foreground); margin-top: 10px; line-height: 1.5; }
-    .alert-card .dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; border: 1px solid rgba(6,78,59,.25); }
-    .alerts-empty {
-      border: 1px dashed var(--color-border); border-radius: var(--radius);
-      padding: 24px; text-align: center; color: var(--color-muted-foreground);
-      background: var(--color-card); margin-top: 20px;
-    }
-    .alerts-empty svg { color: var(--color-primary); margin-bottom: 8px; }
+    /* Styling lives in kinga.css (.alerts-head, .alerts-note, .alerts-list,
+       .alert-card + severity classes, .alerts-empty) — the shared stylesheet
+       is the single source of truth for the deduped, severity-ranked panel. */
+  
   </style>
 </head>
 <body>
@@ -348,6 +332,10 @@
             </span>
             <h2>Latest autonomous alerts</h2>
             <p class="lead">An autonomous watcher checks real Open-Meteo rainfall against the latest known standing water every hour. When the deterministic rule crosses a danger threshold, it writes the exact warning it would send — shown here, verbatim.</p>
+            <p class="alerts-note">
+              <svg width="15" height="15" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg>
+              <span>Latest autonomous alert per settlement. <a href="app.html">Open the tool</a> for the full dispatch history.</span>
+            </p>
           </div>
         </div>
         <div id="alertsWrap">
@@ -503,6 +491,25 @@
       if (text) text.textContent = message;
     }
 
+    // Severity rank for the risk categories (higher = more dangerous). Drives
+    // the visual hierarchy class on each card so dangerous/evacuate dominate
+    // and nuisance/ankle recede. Color is NEVER the only signal — the label
+    // and the metres line stay visible on every card.
+    var ALERT_SEVERITY = {
+      evacuate: 5, dangerous: 4, impassable_boda: 3, ankle: 2, nuisance: 1
+    };
+    function alertSeverityClass(key) {
+      var rank = ALERT_SEVERITY[key] || 0;
+      if (rank >= 4) return 'sev-critical';   // dangerous + evacuate: dominant
+      if (rank === 3) return 'sev-elevated';   // impassable_boda: mid
+      if (rank >= 1) return 'sev-low';          // nuisance + ankle: recede
+      return 'sev-unknown';
+    }
+    // Strip the 'ALERT#' sort-key prefix to get a comparable/formattable iso.
+    function alertWhen(a) {
+      return String((a && a.timestamp) || '').replace('ALERT#', '');
+    }
+
     function renderAlerts(alerts) {
       const list = document.getElementById('alertsList');
       const empty = document.getElementById('alertsEmpty');
@@ -510,23 +517,45 @@
         alertsEmptyState('No autonomous alerts yet. The watcher runs hourly and dispatches here.');
         return;
       }
-      list.innerHTML = '';
+
+      // DEDUPE: keep only the single most-recent alert per settlement. The
+      // sort key is 'ALERT#<iso>' — strip the prefix before comparing, exactly
+      // as the card does before timeAgo. Newest timestamp wins, so Mathare +
+      // Mukuru collapse to at most two cards instead of eight.
+      const latest = {};
       alerts.forEach(function (a) {
+        const s = (a && a.settlement) || 'Unknown';
+        if (!latest[s] || alertWhen(a) > alertWhen(latest[s])) latest[s] = a;
+      });
+      // Show the most dangerous first, then by recency within equal severity.
+      const items = Object.keys(latest).map(function (s) { return latest[s]; });
+      items.sort(function (x, y) {
+        const rx = ALERT_SEVERITY[x.category_key] || 0;
+        const ry = ALERT_SEVERITY[y.category_key] || 0;
+        if (ry !== rx) return ry - rx;
+        return alertWhen(y).localeCompare(alertWhen(x));
+      });
+
+      list.innerHTML = '';
+      items.forEach(function (a) {
         const color = Kinga.riskColor(a.category_key);
         const depth = (a.depth_m != null) ? Number(a.depth_m).toFixed(2) + ' m' : '—';
         const label = a.final_label || Kinga.riskLabel(a.category_key) || a.category_key || 'Unknown';
-        // Alert sort keys are 'ALERT#<iso>'; strip the prefix before timeAgo/Date.
-        const when = String(a.timestamp || '').replace('ALERT#', '');
+        const when = alertWhen(a);
         const li = document.createElement('li');
-        li.className = 'alert-card';
-        li.style.borderLeftColor = color;
+        li.className = 'alert-card ' + alertSeverityClass(a.category_key);
+        // Tint the card background in the risk color at low alpha and tint the
+        // left border, both via a CSS custom property the stylesheet consumes
+        // (keeps alpha math in CSS, contrast-safe for the ink).
+        li.style.setProperty('--ac-risk', color);
         li.innerHTML =
           '<div class="ac-top">' +
-            '<span class="ac-settlement"><span class="dot" style="background:' + color + '"></span>' +
+            '<span class="ac-settlement">' +
+              '<span class="dot" style="background:' + color + '" aria-hidden="true"></span>' +
               (a.settlement || 'Unknown') + '</span>' +
             '<span class="ac-time">' + Kinga.timeAgo(when) + '</span>' +
           '</div>' +
-          '<div class="ac-label">' + label + '</div>' +
+          '<div class="ac-label" style="color:' + color + '">' + label + '</div>' +
           '<div class="ac-metres">' + depth + ' · rain 24h ' + Kinga.fmtMm(a.rainfall_mm) + '</div>' +
           (a.message ? '<div class="ac-message">' + a.message + '</div>' : '');
         list.appendChild(li);
