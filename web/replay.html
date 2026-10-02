@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kinga Maji — the 2024 Nairobi floods, replayed on real rainfall</title>
+  <meta name="description" content="A retrospective replay of the April–May 2024 Nairobi floods for Mathare and Mukuru, using real daily rainfall from the Open-Meteo archive and Kinga Maji's deterministic 20 mm escalation rule.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="kinga.css">
+  <style>
+    /* ---- replay intro ---- */
+    .replay-intro { padding: 40px 0 8px; }
+    .replay-intro h1 { font-size: clamp(1.6rem, 4vw, 2.4rem); letter-spacing: -0.02em; margin: 10px 0 12px; }
+    .replay-intro .lead { font-size: 1.08rem; max-width: 70ch; }
+
+    /* ---- honesty / citation note ---- */
+    .cite-note {
+      margin: 20px 0 0; padding: 14px 16px; border-radius: 14px;
+      background: var(--color-card); border: 1px solid var(--color-border);
+      color: var(--color-foreground); font-size: 0.9rem; line-height: 1.55;
+      display: flex; gap: 10px; align-items: flex-start;
+    }
+    .cite-note svg { color: var(--color-primary); flex: none; margin-top: 2px; }
+    .cite-note a { color: var(--color-primary); font-weight: 600; }
+    .cite-note .mono { font-family: 'Fira Code', monospace; }
+
+    /* ---- settlement switch ---- */
+    .seg {
+      display: inline-flex; gap: 4px; margin: 22px 0 6px;
+      padding: 4px; border-radius: 12px; background: var(--color-muted);
+      border: 1px solid var(--color-border);
+    }
+    .seg button {
+      font-family: inherit; font-size: 0.95rem; font-weight: 600;
+      padding: 8px 16px; border-radius: 9px; border: 1px solid transparent;
+      background: transparent; color: var(--color-foreground); cursor: pointer;
+      transition: background var(--ease), color var(--ease);
+    }
+    .seg button[aria-pressed="true"] { background: var(--color-primary); color: var(--color-on-primary); }
+    .seg button:hover:not([aria-pressed="true"]) { background: var(--color-card); }
+
+    /* ---- summary stat row ---- */
+    .stat-row { display: grid; grid-template-columns: 1fr; gap: 12px; margin: 18px 0 6px; }
+    @media (min-width: 620px) { .stat-row { grid-template-columns: repeat(3, 1fr); } }
+    .stat {
+      border: 1px solid var(--color-border); border-radius: var(--radius);
+      background: var(--color-card); padding: 14px 16px;
+    }
+    .stat .stat-k { font-size: 0.78rem; color: var(--color-muted-foreground); font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
+    .stat .stat-v { font-family: 'Fira Code', monospace; font-size: 1.5rem; font-weight: 700; margin-top: 4px; }
+
+    /* ---- timeline ---- */
+    .timeline { margin: 18px 0 0; display: grid; grid-template-columns: 1fr; gap: 10px; }
+    .day {
+      display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center;
+      border: 1px solid var(--color-border); border-left: 7px solid var(--risk-neutral);
+      border-radius: var(--radius); background: var(--color-card); padding: 12px 16px;
+    }
+    .day .d-date { font-family: 'Fira Code', monospace; font-weight: 600; font-size: 0.92rem; white-space: nowrap; }
+    .day .d-main { min-width: 0; }
+    .day .d-rain { font-family: 'Fira Code', monospace; font-size: 1.15rem; font-weight: 700; }
+    .day .d-label { font-size: 0.88rem; color: var(--color-muted-foreground); margin-top: 2px; }
+    .day .d-flag {
+      display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+      font-size: 0.78rem; font-weight: 700; padding: 5px 10px; border-radius: 999px;
+    }
+    .day .d-flag svg { flex: none; }
+    .day .d-flag.escalate { background: var(--risk-impassable); color: #fff; }
+    .day .d-flag.calm { background: var(--color-muted); color: var(--color-muted-foreground); }
+
+    .replay-status {
+      border: 1px dashed var(--color-border); border-radius: var(--radius);
+      padding: 24px; text-align: center; color: var(--color-muted-foreground);
+      background: var(--color-card); margin-top: 18px;
+    }
+    .replay-status svg { color: var(--color-primary); margin-bottom: 8px; }
+
+    .legend { display: flex; flex-wrap: wrap; gap: 14px; margin: 14px 0 0; font-size: 0.84rem; color: var(--color-muted-foreground); }
+    .legend .lg { display: inline-flex; align-items: center; gap: 7px; }
+    .legend .sw { width: 14px; height: 14px; border-radius: 4px; border: 1px solid rgba(6,78,59,.25); }
+  </style>
+</head>
+<body>
+  <!-- Shared header -->
+  <header class="header">
+    <div class="header-inner">
+      <a class="brand" href="index.html">
+        <span class="brand-icon" aria-hidden="true">
+          <svg width="26" height="26" viewBox="0 0 256 256" fill="currentColor"><path d="M174,47.75a254.19,254.19,0,0,0-41.45-38.3,8,8,0,0,0-9.18,0A254.19,254.19,0,0,0,82,47.75C54.51,79.32,40,112.6,40,144a88,88,0,0,0,176,0C216,112.6,201.49,79.32,174,47.75ZM128,216a72.08,72.08,0,0,1-72-72c0-57.23,55.47-105,72-118,16.53,13,72,60.75,72,118A72.08,72.08,0,0,1,128,216Zm55.89-62.66a57.6,57.6,0,0,1-46.56,46.55A8.75,8.75,0,0,1,136,200a8,8,0,0,1-1.32-15.89c16.57-2.79,30.63-16.85,33.44-33.45a8,8,0,0,1,15.78,2.68Z"/></svg>
+        </span>
+        Kinga Maji
+      </a>
+      <nav class="nav" aria-label="Primary">
+        <a href="index.html">
+          <svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M218.83,103.77l-80-75.48a1.14,1.14,0,0,1-.11-.11,16,16,0,0,0-21.53,0l-.11.11L37.17,103.77A16,16,0,0,0,32,115.55V208a16,16,0,0,0,16,16H96a16,16,0,0,0,16-16V160h32v48a16,16,0,0,0,16,16h48a16,16,0,0,0,16-16V115.55A16,16,0,0,0,218.83,103.77ZM208,208H160V160a16,16,0,0,0-16-16H112a16,16,0,0,0-16,16v48H48V115.55l.11-.1L128,40l79.9,75.43.11.1Z"/></svg>
+          <span class="nav-label">Home</span>
+        </a>
+        <a href="app.html">
+          <svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M174,47.75a254.19,254.19,0,0,0-41.45-38.3,8,8,0,0,0-9.18,0A254.19,254.19,0,0,0,82,47.75C54.51,79.32,40,112.6,40,144a88,88,0,0,0,176,0C216,112.6,201.49,79.32,174,47.75Z"/></svg>
+          <span class="nav-label">Check the water</span>
+        </a>
+        <a href="replay.html" aria-current="page">
+          <svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M136,80v43.47l36.12,21.67a8,8,0,0,1-8.24,13.72l-40-24A8,8,0,0,1,120,128V80a8,8,0,0,1,16,0Zm92-16a8,8,0,0,0-8,8V82C206.4,54.11,170.82,32,128,32a96,96,0,1,0,0,192,8,8,0,0,0,0-16,80,80,0,1,1,0-160c37.36,0,66.4,19.4,76.9,40H176a8,8,0,0,0,0,16h48a8,8,0,0,0,8-8V72A8,8,0,0,0,228,64Z"/></svg>
+          <span class="nav-label">2024 replay</span>
+        </a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="replay-intro">
+      <div class="container">
+        <span class="eyebrow">
+          <svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M136,80v43.47l36.12,21.67a8,8,0,0,1-8.24,13.72l-40-24A8,8,0,0,1,120,128V80a8,8,0,0,1,16,0Zm92-16a8,8,0,0,0-8,8V82C206.4,54.11,170.82,32,128,32a96,96,0,1,0,0,192,8,8,0,0,0,0-16,80,80,0,1,1,0-160c37.36,0,66.4,19.4,76.9,40H176a8,8,0,0,0,0,16h48a8,8,0,0,0,8-8V72A8,8,0,0,0,228,64Z"/></svg>
+          Retrospective replay
+        </span>
+        <h1>The 2024 Nairobi floods, replayed on real rainfall</h1>
+        <p class="lead">In April and May 2024, El Niño-driven rains flooded Nairobi's informal settlements. This page replays that window for <strong>Mathare</strong> and <strong>Mukuru</strong> using <strong>real recorded daily rainfall</strong>, then applies Kinga Maji's own deterministic rule — <span class="mono">≥ 20 mm of rain over standing water escalates the warning</span> — day by day, so you can see which days the system would have flagged.</p>
+
+        <div class="cite-note">
+          <svg width="22" height="22" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm-4,48a12,12,0,1,1-12,12A12,12,0,0,1,124,72Zm12,112a16,16,0,0,1-16-16V128a8,8,0,0,1,0-16,16,16,0,0,1,16,16v40a8,8,0,0,1,0,16Z"/></svg>
+          <span>
+            Retrospective replay using <strong>real daily rainfall</strong> from the
+            <a href="https://open-meteo.com/en/docs/historical-weather-api" target="_blank" rel="noopener">Open-Meteo Historical Weather API</a>
+            (<span class="mono">archive-api.open-meteo.com</span>), <span class="mono" id="citeRange">2024-04-01 to 2024-05-15</span>,
+            for Mathare (−1.2595, 36.8580) and Mukuru (−1.3167, 36.8667).
+            Depth is <strong>illustrative</strong> here — Kinga Maji computes a real depth only from a photo with a known-height
+            reference object, so no measured flood depths are invented on this page. The timeline shows what the
+            rainfall-side rule <em>would</em> have flagged against standing water, using real archive rainfall only.
+          </span>
+        </div>
+
+        <div class="seg" role="group" aria-label="Choose a settlement">
+          <button id="segMathare" aria-pressed="true" onclick="selectSettlement('Mathare')">Mathare</button>
+          <button id="segMukuru" aria-pressed="false" onclick="selectSettlement('Mukuru')">Mukuru</button>
+        </div>
+
+        <div class="stat-row" id="statRow" style="display:none;">
+          <div class="stat"><div class="stat-k">Days replayed</div><div class="stat-v" id="statDays">—</div></div>
+          <div class="stat"><div class="stat-k">Total rain</div><div class="stat-v" id="statTotal">—</div></div>
+          <div class="stat"><div class="stat-k">Days flagged (≥20 mm)</div><div class="stat-v" id="statFlagged">—</div></div>
+        </div>
+
+        <div class="legend" aria-hidden="true">
+          <span class="lg"><span class="sw" style="background:var(--risk-impassable)"></span> Day the ≥20 mm rule flags for escalation review</span>
+          <span class="lg"><span class="sw" style="background:var(--color-muted)"></span> Below the 20 mm escalation threshold</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="section-tight">
+      <div class="container">
+        <div id="timeline" class="timeline" aria-live="polite"></div>
+        <div class="replay-status" id="replayStatus">
+          <svg width="34" height="34" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M136,80v43.47l36.12,21.67a8,8,0,0,1-8.24,13.72l-40-24A8,8,0,0,1,120,128V80a8,8,0,0,1,16,0Zm92-16a8,8,0,0,0-8,8V82C206.4,54.11,170.82,32,128,32a96,96,0,1,0,0,192,8,8,0,0,0,0-16,80,80,0,1,1,0-160c37.36,0,66.4,19.4,76.9,40H176a8,8,0,0,0,0,16h48a8,8,0,0,0,8-8V72A8,8,0,0,0,228,64Z"/></svg>
+          <p id="replayStatusText">Loading real 2024 rainfall from the Open-Meteo archive…</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      Kinga Maji · Mathare &amp; Mukuru, Nairobi. This replay uses real recorded rainfall; depths shown as illustrative are
+      not measurements. Kinga Maji does <strong>not</strong> replace official emergency services — if you are in danger,
+      contact local authorities.
+    </div>
+  </footer>
+
+  <script src="kinga.js"></script>
+  <script>
+    // Purely archive-driven: this page calls ONLY the third-party Open-Meteo
+    // archive origin, never our API, so it renders fully even when our backend
+    // is down. (No API-base placeholder and no preview sentinel are needed here.)
+    var START_DATE = '2024-04-01';
+    var END_DATE = '2024-05-15';
+    var ESCALATE_MM = 20; // Kinga Maji's locked rainfall escalation threshold.
+
+    var SETTLEMENTS = {
+      Mathare: { lat: -1.2595, lon: 36.8580 },
+      Mukuru:  { lat: -1.3167, lon: 36.8667 }
+    };
+
+    // Cache the fetched archive per settlement so switching tabs is instant and
+    // does not refetch.
+    var cache = {};
+    var current = 'Mathare';
+
+    function archiveUrl(lat, lon) {
+      return 'https://archive-api.open-meteo.com/v1/archive' +
+        '?latitude=' + encodeURIComponent(lat) +
+        '&longitude=' + encodeURIComponent(lon) +
+        '&start_date=' + START_DATE +
+        '&end_date=' + END_DATE +
+        '&daily=precipitation_sum' +
+        '&timezone=Africa%2FNairobi';
+    }
+
+    function showStatus(message) {
+      var tl = document.getElementById('timeline');
+      var st = document.getElementById('replayStatus');
+      var tx = document.getElementById('replayStatusText');
+      var row = document.getElementById('statRow');
+      if (tl) tl.innerHTML = '';
+      if (row) row.style.display = 'none';
+      if (st) st.style.display = 'block';
+      if (tx) tx.textContent = message;
+    }
+
+    function renderDays(days) {
+      var tl = document.getElementById('timeline');
+      var st = document.getElementById('replayStatus');
+      var row = document.getElementById('statRow');
+      if (!days || days.length === 0) {
+        showStatus('No daily rainfall was returned for this window — this is a retrospective view; try again shortly.');
+        return;
+      }
+
+      // Summary stats (real numbers only).
+      var total = 0, flagged = 0;
+      days.forEach(function (d) {
+        total += d.mm;
+        if (d.mm >= ESCALATE_MM) flagged++;
+      });
+      document.getElementById('statDays').textContent = String(days.length);
+      document.getElementById('statTotal').textContent = Kinga.fmtMm(Math.round(total * 10) / 10);
+      document.getElementById('statFlagged').textContent = String(flagged);
+      if (row) row.style.display = '';
+
+      // Day rows. Color escalation days with the orange "impassable" risk var
+      // (an honest caution hue), heaviest day in dangerous red — but the mm
+      // number and a text label are ALWAYS present, so color is never the only
+      // signal (DESIGN.md).
+      var maxMm = days.reduce(function (m, d) { return Math.max(m, d.mm); }, 0);
+      tl.innerHTML = '';
+      days.forEach(function (d) {
+        var escalate = d.mm >= ESCALATE_MM;
+        var isHeaviest = escalate && d.mm === maxMm && maxMm > 0;
+        var edgeVar = escalate ? (isHeaviest ? '--risk-dangerous' : '--risk-impassable') : '--risk-nuisance';
+
+        var row = document.createElement('div');
+        row.className = 'day';
+        row.style.borderLeftColor = 'var(' + edgeVar + ')';
+
+        var label = escalate
+          ? "Kinga Maji's rule would flag this day for escalation review (≥20 mm forecast over standing water)."
+          : 'Below the 20 mm escalation threshold.';
+
+        var flagHtml = escalate
+          ? '<span class="d-flag escalate">' +
+              '<svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M240.26,186.1,152.81,34.23h0a28.74,28.74,0,0,0-49.62,0L15.74,186.1a27.45,27.45,0,0,0,0,27.71A28.31,28.31,0,0,0,40.55,228h174.9a28.31,28.31,0,0,0,24.78-14.19A27.45,27.45,0,0,0,240.26,186.1ZM120,104a8,8,0,0,1,16,0v40a8,8,0,0,1-16,0Zm8,88a12,12,0,1,1,12-12A12,12,0,0,1,128,192Z"/></svg>' +
+              'Flag for review</span>'
+          : '<span class="d-flag calm">' +
+              '<svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M173.66,98.34a8,8,0,0,1,0,11.32l-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35A8,8,0,0,1,173.66,98.34Z"/></svg>' +
+              'Below threshold</span>';
+
+        row.innerHTML =
+          '<span class="d-date">' + d.date + '</span>' +
+          '<span class="d-main">' +
+            '<span class="d-rain">' + Kinga.fmtMm(d.mm) + '</span>' +
+            '<span class="d-label">' + label + '</span>' +
+          '</span>' +
+          flagHtml;
+        tl.appendChild(row);
+      });
+
+      if (st) st.style.display = 'none';
+    }
+
+    function render() {
+      var entry = cache[current];
+      if (entry === undefined) {
+        showStatus('Loading real 2024 rainfall from the Open-Meteo archive…');
+        return;
+      }
+      if (entry === null) {
+        showStatus('Historical rainfall is unavailable right now — this is a retrospective view; try again shortly.');
+        return;
+      }
+      renderDays(entry);
+    }
+
+    function selectSettlement(name) {
+      current = name;
+      document.getElementById('segMathare').setAttribute('aria-pressed', String(name === 'Mathare'));
+      document.getElementById('segMukuru').setAttribute('aria-pressed', String(name === 'Mukuru'));
+      render();
+      if (cache[name] === undefined) fetchArchive(name);
+    }
+
+    function fetchArchive(name) {
+      var sc = SETTLEMENTS[name];
+      if (!sc) return;
+      fetch(archiveUrl(sc.lat, sc.lon)).then(function (res) {
+        if (!res.ok) throw new Error('archive HTTP ' + res.status);
+        return res.json();
+      }).then(function (data) {
+        var daily = (data && data.daily) || {};
+        var times = daily.time || [];
+        var precip = daily.precipitation_sum || [];
+        var days = [];
+        for (var i = 0; i < times.length && i < precip.length; i++) {
+          var p = precip[i];
+          // Skip null days honestly rather than treating a gap as 0 mm.
+          if (p == null) continue;
+          var v = Number(p);
+          if (!isFinite(v)) continue;
+          days.push({ date: times[i], mm: v });
+        }
+        cache[name] = days;
+        if (current === name) render();
+      }).catch(function () {
+        cache[name] = null;
+        if (current === name) render();
+      });
+    }
+
+    // Kick off: render the default settlement's status, then fetch it.
+    document.getElementById('citeRange').textContent = START_DATE + ' to ' + END_DATE;
+    selectSettlement('Mathare');
+  </script>
+</body>
+</html>

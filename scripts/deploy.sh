@@ -18,6 +18,12 @@ export AWS_PROFILE=simi-ops
 export AWS_DEFAULT_REGION=us-east-1
 export AWS_REGION=us-east-1
 
+# Resolve the deploy account from the active profile so cdk/app.py stays
+# account-agnostic (the repo is not hardwired to one AWS account).
+export CDK_DEPLOY_ACCOUNT="$(aws sts get-caller-identity --query Account --output text)"
+export CDK_DEPLOY_REGION=us-east-1
+echo "==> deploy account = $CDK_DEPLOY_ACCOUNT (resolved from $AWS_PROFILE)"
+
 # --- Resolve absolute paths (run from anywhere) ------------------------------
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -26,6 +32,7 @@ LAMBDA_DIR="$ROOT/lambda"
 CDK_DIR="$ROOT/cdk"
 WEB_INDEX="$ROOT/web/index.html"
 WEB_APP="$ROOT/web/app.html"
+WEB_REPLAY="$ROOT/web/replay.html"
 OUTPUTS="$CDK_DIR/outputs.json"
 
 echo "==> Kinga Maji deploy  (profile=$AWS_PROFILE region=$AWS_DEFAULT_REGION)"
@@ -70,14 +77,19 @@ echo "    ApiUrl        = $API_URL"
 echo "    CloudFrontURL = $CF_URL"
 
 # --- 5. Inject real API URL into web/*.html, re-upload + invalidate ----------
-echo "==> [5/9] Injecting API URL into web/index.html + web/app.html and re-deploying asset"
-# Rewrite the placeholder in place for BOTH pages (idempotent: replaces whatever
-# is currently there). Both files share the __API_URL__ placeholder and the
-# `const API = '...';` line, so the same two replacements apply to each.
-python3 - "$API_URL" "$WEB_INDEX" "$WEB_APP" <<'PY'
-import re, sys
+echo "==> [5/9] Injecting API URL into web/index.html + web/app.html + web/replay.html and re-deploying asset"
+# Rewrite the placeholder in place for ALL pages (idempotent: replaces whatever
+# is currently there). index.html + app.html share the __API_URL__ placeholder
+# and the `const API = '...';` line; replay.html is archive-only and normally
+# carries no placeholder, so both replacements are harmless no-ops there. The
+# loop skips any path that does not exist.
+python3 - "$API_URL" "$WEB_INDEX" "$WEB_APP" "$WEB_REPLAY" <<'PY'
+import os, re, sys
 api = sys.argv[1]
 for path in sys.argv[2:]:
+    if not os.path.isfile(path):
+        print("    skip (missing) ->", path)
+        continue
     with open(path, "r", encoding="utf-8") as f:
         html = f.read()
     # Replace both the raw placeholder and any previously-injected endpoint value.
@@ -98,6 +110,18 @@ echo "==> [6/9] Seeding DynamoDB (POST /seed)"
 curl -s -X POST "$API_URL/seed" -H 'content-type: application/json' || true
 echo
 
+# --- 6b. Seed ONE real autonomous alert via a real watcher cycle -------------
+# The watcher reads REAL Open-Meteo forecast rainfall and the just-seeded report
+# depths (Mathare 0.72 m = 'dangerous', Mukuru 0.38 m = 'impassable_boda').
+# Mathare's seeded depth is already in DANGER_KEYS, so POST /watch dispatches at
+# least one alert regardless of today's forecast — making /alerts deterministically
+# non-empty given the seed. A short settle lets the seed propagate before /watch
+# reads it; do NOT fabricate an alert if it is empty (see verify step).
+echo "==> [6b] Seeding one real autonomous alert (POST /watch)"
+sleep 3
+curl -s -X POST "$API_URL/watch" -H 'content-type: application/json' || true
+echo
+
 # --- 7-9. PROVE LIVE ---------------------------------------------------------
 echo "==> [7/9] Verifying live endpoints (no auth)"
 fail=0
@@ -111,6 +135,11 @@ code="$(curl -s -o /dev/null -w '%{http_code}' "$API_URL/reports")"
 echo "    /reports           -> $code"
 echo "$reports_json" | python3 -c 'import sys,json; d=json.load(sys.stdin); assert d.get("reports"), "empty reports"; print("    reports count     =", len(d["reports"]))' || { echo "    FAIL /reports (empty or bad JSON)"; fail=1; }
 
+alerts_json="$(curl -s "$API_URL/alerts")"
+code="$(curl -s -o /dev/null -w '%{http_code}' "$API_URL/alerts")"
+echo "    /alerts            -> $code"
+echo "$alerts_json" | python3 -c 'import sys,json; d=json.load(sys.stdin); assert d.get("alerts"), "empty alerts"; print("    alerts count      =", len(d["alerts"]))' || { echo "    FAIL /alerts (empty or bad JSON)"; fail=1; }
+
 echo "==> [8/9] Verifying /analyze demo path"
 analyze_json="$(curl -s -X POST "$API_URL/analyze" -H 'content-type: application/json' \
   -d '{"demo":true,"settlement":"Mathare","reference_object":"doorframe"}')"
@@ -123,14 +152,20 @@ echo "==> [9/9] Verifying CloudFront serves the API-injected pages (no auth)"
 # interactive map/leaflet lives on /app.html, which is checked separately below.
 HERO_SUBSTR="the flood warning that shows its working"
 cf_html=""
+app_html=""
 code=""
-for attempt in 1 2 3 4 5; do
+app_code=""
+for attempt in 1 2 3 4 5 6; do
   code="$(curl -s -o /dev/null -w '%{http_code}' "$CF_URL")"
   cf_html="$(curl -s "$CF_URL")"
-  if [ "$code" = "200" ] && echo "$cf_html" | grep -qi "$HERO_SUBSTR"; then
+  app_code="$(curl -s -o /dev/null -w '%{http_code}' "$CF_URL/app.html")"
+  app_html="$(curl -s "$CF_URL/app.html")"
+  if [ "$code" = "200" ] && [ "$app_code" = "200" ] \
+     && echo "$cf_html" | grep -qi "$HERO_SUBSTR" \
+     && echo "$app_html" | grep -qi leaflet; then
     break
   fi
-  echo "    (attempt $attempt: code=$code, retrying CloudFront in 5s)"
+  echo "    (attempt $attempt: root=$code app=$app_code, waiting 5s for CloudFront propagation)"
   sleep 5
 done
 echo "    CloudFront root    -> $code"
@@ -145,9 +180,7 @@ if echo "$cf_html" | grep -q "__API_URL__"; then
   echo "    FAIL placeholder __API_URL__ still present"; fail=1
 fi
 
-# Also verify the restyled tool page is served and API-injected.
-app_html="$(curl -s "$CF_URL/app.html")"
-app_code="$(curl -s -o /dev/null -w '%{http_code}' "$CF_URL/app.html")"
+# The restyled tool page was fetched inside the retry loop above.
 echo "    CloudFront /app.html -> $app_code"
 [ "$app_code" = "200" ] || { echo "    FAIL CloudFront /app.html"; fail=1; }
 echo "$app_html" | grep -qi leaflet && echo "    app.html leaflet   -> yes" || { echo "    FAIL app.html leaflet missing"; fail=1; }
@@ -158,6 +191,16 @@ else
 fi
 if echo "$app_html" | grep -q "__API_URL__"; then
   echo "    FAIL app.html placeholder __API_URL__ still present"; fail=1
+fi
+
+# Verify the 2024 replay page is served with its real-data citation present.
+replay_code="$(curl -s -o /dev/null -w '%{http_code}' "$CF_URL/replay.html")"
+replay_html="$(curl -s "$CF_URL/replay.html")"
+echo "    CloudFront /replay.html -> $replay_code"
+[ "$replay_code" = "200" ] || { echo "    FAIL CloudFront /replay.html"; fail=1; }
+echo "$replay_html" | grep -qi "archive-api.open-meteo.com" && echo "    replay citation    -> yes" || { echo "    FAIL replay.html citation missing"; fail=1; }
+if echo "$replay_html" | grep -q "__API_URL__"; then
+  echo "    FAIL replay.html placeholder __API_URL__ present (should be archive-only)"; fail=1
 fi
 
 echo

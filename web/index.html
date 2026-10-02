@@ -91,6 +91,28 @@
     .trust-item svg { color: var(--color-primary); flex: none; margin-top: 2px; }
     .trust-item h3 { font-size: 1rem; margin: 0 0 4px; }
     .trust-item p { margin: 0; color: var(--color-muted-foreground); font-size: 0.9rem; }
+
+    /* ---- latest autonomous alerts ---- */
+    .alerts-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+    .alerts-list { list-style: none; margin: 20px 0 0; padding: 0; display: grid; grid-template-columns: 1fr; gap: 12px; }
+    @media (min-width: 760px) { .alerts-list { grid-template-columns: repeat(2, 1fr); } }
+    .alert-card {
+      border: 1px solid var(--color-border); border-left: 7px solid var(--risk-neutral);
+      border-radius: var(--radius); background: var(--color-card); padding: 16px;
+    }
+    .alert-card .ac-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+    .alert-card .ac-settlement { font-weight: 600; display: inline-flex; align-items: center; gap: 8px; }
+    .alert-card .ac-time { color: var(--color-muted-foreground); font-size: 0.78rem; white-space: nowrap; }
+    .alert-card .ac-label { font-size: 0.98rem; font-weight: 600; margin: 8px 0 2px; }
+    .alert-card .ac-metres { font-family: 'Fira Code', monospace; font-size: 0.82rem; color: var(--color-muted-foreground); }
+    .alert-card .ac-message { font-size: 0.84rem; color: var(--color-muted-foreground); margin-top: 10px; line-height: 1.5; }
+    .alert-card .dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; border: 1px solid rgba(6,78,59,.25); }
+    .alerts-empty {
+      border: 1px dashed var(--color-border); border-radius: var(--radius);
+      padding: 24px; text-align: center; color: var(--color-muted-foreground);
+      background: var(--color-card); margin-top: 20px;
+    }
+    .alerts-empty svg { color: var(--color-primary); margin-bottom: 8px; }
   </style>
 </head>
 <body>
@@ -112,6 +134,10 @@
           <svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M174,47.75a254.19,254.19,0,0,0-41.45-38.3,8,8,0,0,0-9.18,0A254.19,254.19,0,0,0,82,47.75C54.51,79.32,40,112.6,40,144a88,88,0,0,0,176,0C216,112.6,201.49,79.32,174,47.75Z"/></svg>
           <span class="nav-label">Check the water</span>
         </a>
+        <a href="replay.html">
+          <svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M136,80v43.47l36.12,21.67a8,8,0,0,1-8.24,13.72l-40-24A8,8,0,0,1,120,128V80a8,8,0,0,1,16,0Zm92-16a8,8,0,0,0-8,8V82C206.4,54.11,170.82,32,128,32a96,96,0,1,0,0,192,8,8,0,0,0,0-16,80,80,0,1,1,0-160c37.36,0,66.4,19.4,76.9,40H176a8,8,0,0,0,0,16h48a8,8,0,0,0,8-8V72A8,8,0,0,0,228,64Z"/></svg>
+          <span class="nav-label">2024 replay</span>
+        </a>
       </nav>
     </div>
   </header>
@@ -132,6 +158,10 @@
               <a class="btn btn-primary btn-lg" href="app.html">
                 Check the water now
                 <svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z"/></svg>
+              </a>
+              <a class="btn btn-ghost btn-lg" href="replay.html">
+                <svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true" role="img" aria-label="Replay the 2024 floods"><path d="M136,80v43.47l36.12,21.67a8,8,0,0,1-8.24,13.72l-40-24A8,8,0,0,1,120,128V80a8,8,0,0,1,16,0Zm92-16a8,8,0,0,0-8,8V82C206.4,54.11,170.82,32,128,32a96,96,0,1,0,0,192,8,8,0,0,0,0-16,80,80,0,1,1,0-160c37.36,0,66.4,19.4,76.9,40H176a8,8,0,0,0,0,16h48a8,8,0,0,0,8-8V72A8,8,0,0,0,228,64Z"/></svg>
+                See the 2024 floods replayed
               </a>
             </div>
           </div>
@@ -307,6 +337,29 @@
       </div>
     </section>
 
+    <!-- Latest autonomous alerts -->
+    <section class="section-tight" id="autonomous">
+      <div class="container">
+        <div class="alerts-head">
+          <div>
+            <span class="eyebrow">
+              <svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm-8,56a8,8,0,0,1,16,0v56a8,8,0,0,1-16,0Zm8,104a12,12,0,1,1,12-12A12,12,0,0,1,128,184Z"/></svg>
+              Watching, hourly
+            </span>
+            <h2>Latest autonomous alerts</h2>
+            <p class="lead">An autonomous watcher checks real Open-Meteo rainfall against the latest known standing water every hour. When the deterministic rule crosses a danger threshold, it writes the exact warning it would send — shown here, verbatim.</p>
+          </div>
+        </div>
+        <div id="alertsWrap">
+          <ul class="alerts-list" id="alertsList" style="display:none;"></ul>
+          <div class="alerts-empty" id="alertsEmpty">
+            <svg width="34" height="34" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm-8,56a8,8,0,0,1,16,0v56a8,8,0,0,1-16,0Zm8,104a12,12,0,1,1,12-12A12,12,0,0,1,128,184Z"/></svg>
+            <p id="alertsEmptyText">Loading the latest autonomous alerts…</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- Trust row -->
     <section class="section trust" id="trust">
       <div class="container">
@@ -348,7 +401,7 @@
   <script src="kinga.js"></script>
   <script>
     // Deploy pipeline rewrites this placeholder with the live API base URL.
-    const API = 'https://dh0959qwna.execute-api.us-east-1.amazonaws.com';
+    const API = '__API_URL__';
     // Replacement-proof sentinel: reconstructed from fragments so the deploy
     // step's blanket placeholder-to-real-URL replace cannot rewrite it. The raw
     // placeholder assignment above DOES equal this before deploy (preview mode);
@@ -440,7 +493,64 @@
       }
     }
 
+    // ----- Latest autonomous alerts (GET /alerts via the same sentinel guard) -----
+    function alertsEmptyState(message) {
+      const list = document.getElementById('alertsList');
+      const empty = document.getElementById('alertsEmpty');
+      const text = document.getElementById('alertsEmptyText');
+      if (list) list.style.display = 'none';
+      if (empty) empty.style.display = 'block';
+      if (text) text.textContent = message;
+    }
+
+    function renderAlerts(alerts) {
+      const list = document.getElementById('alertsList');
+      const empty = document.getElementById('alertsEmpty');
+      if (!alerts || alerts.length === 0) {
+        alertsEmptyState('No autonomous alerts yet. The watcher runs hourly and dispatches here.');
+        return;
+      }
+      list.innerHTML = '';
+      alerts.forEach(function (a) {
+        const color = Kinga.riskColor(a.category_key);
+        const depth = (a.depth_m != null) ? Number(a.depth_m).toFixed(2) + ' m' : '—';
+        const label = a.final_label || Kinga.riskLabel(a.category_key) || a.category_key || 'Unknown';
+        // Alert sort keys are 'ALERT#<iso>'; strip the prefix before timeAgo/Date.
+        const when = String(a.timestamp || '').replace('ALERT#', '');
+        const li = document.createElement('li');
+        li.className = 'alert-card';
+        li.style.borderLeftColor = color;
+        li.innerHTML =
+          '<div class="ac-top">' +
+            '<span class="ac-settlement"><span class="dot" style="background:' + color + '"></span>' +
+              (a.settlement || 'Unknown') + '</span>' +
+            '<span class="ac-time">' + Kinga.timeAgo(when) + '</span>' +
+          '</div>' +
+          '<div class="ac-label">' + label + '</div>' +
+          '<div class="ac-metres">' + depth + ' · rain 24h ' + Kinga.fmtMm(a.rainfall_mm) + '</div>' +
+          (a.message ? '<div class="ac-message">' + a.message + '</div>' : '');
+        list.appendChild(li);
+      });
+      empty.style.display = 'none';
+      list.style.display = '';
+    }
+
+    async function loadAlerts() {
+      if (!API || API === API_PLACEHOLDER) {
+        alertsEmptyState('Autonomous alerts appear here once the app is deployed (preview mode). The watcher runs hourly.');
+        return;
+      }
+      try {
+        const res = await fetch(API + '/alerts');
+        const data = await res.json();
+        renderAlerts(data.alerts || []);
+      } catch (e) {
+        alertsEmptyState('Could not reach the alert network right now. The watcher runs hourly and dispatches here.');
+      }
+    }
+
     loadLive();
+    loadAlerts();
   </script>
 </body>
 </html>

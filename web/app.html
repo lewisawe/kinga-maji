@@ -101,6 +101,10 @@
           <svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M174,47.75a254.19,254.19,0,0,0-41.45-38.3,8,8,0,0,0-9.18,0A254.19,254.19,0,0,0,82,47.75C54.51,79.32,40,112.6,40,144a88,88,0,0,0,176,0C216,112.6,201.49,79.32,174,47.75Z"/></svg>
           <span class="nav-label">Check the water</span>
         </a>
+        <a href="replay.html">
+          <svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M136,80v43.47l36.12,21.67a8,8,0,0,1-8.24,13.72l-40-24A8,8,0,0,1,120,128V80a8,8,0,0,1,16,0Zm92-16a8,8,0,0,0-8,8V82C206.4,54.11,170.82,32,128,32a96,96,0,1,0,0,192,8,8,0,0,0,0-16,80,80,0,1,1,0-160c37.36,0,66.4,19.4,76.9,40H176a8,8,0,0,0,0,16h48a8,8,0,0,0,8-8V72A8,8,0,0,0,228,64Z"/></svg>
+          <span class="nav-label">2024 replay</span>
+        </a>
       </nav>
     </div>
   </header>
@@ -199,11 +203,11 @@
   </footer>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-    integrity="sha256-o9N1jGDZrf5tS+Ft4gbIK7mYMipq9lqpVJ91xHSyKGg=" crossorigin=""></script>
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <script src="kinga.js"></script>
   <script>
     // Deploy pipeline rewrites this placeholder with the live API base URL.
-    const API = 'https://dh0959qwna.execute-api.us-east-1.amazonaws.com';
+    const API = '__API_URL__';
     // Replacement-proof sentinel: reconstructed from fragments so the deploy
     // step's blanket placeholder-to-real-URL replace cannot rewrite it. The raw
     // placeholder assignment above DOES equal this before deploy (preview mode);

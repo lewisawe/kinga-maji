@@ -19,6 +19,8 @@ from aws_cdk import (
     aws_cloudfront as cloudfront,
     aws_cloudfront_origins as origins,
     aws_dynamodb as dynamodb,
+    aws_events as events,
+    aws_events_targets as targets,
     aws_iam as iam,
     aws_lambda as lambda_,
     aws_s3 as s3,
@@ -105,9 +107,36 @@ class KingaStack(Stack):
             ("/reports", apigwv2.HttpMethod.GET),
             ("/seed", apigwv2.HttpMethod.POST),
             ("/health", apigwv2.HttpMethod.GET),
+            # Autonomous watcher (ADDITIVE): read latest alerts + run a cycle.
+            ("/alerts", apigwv2.HttpMethod.GET),
+            ("/watch", apigwv2.HttpMethod.POST),
         ]
         for path, method in routes:
             http_api.add_routes(path=path, methods=[method], integration=integration)
+
+        # --- EventBridge: hourly autonomous watcher (ADDITIVE) ------------
+        # Invoke the SAME Lambda on a synthetic /watch event every hour. The
+        # event shape matches the handler's HTTP-API-v2 routing (rawPath +
+        # requestContext.http.method), so the scheduled invoke runs _watch().
+        # add_target(LambdaFunction(...)) wires the lambda:InvokeFunction
+        # permission automatically — no manual Permission needed. DynamoDB RW is
+        # already granted to fn above; alerts reuse that grant.
+        schedule_rule = events.Rule(
+            self,
+            "WatcherSchedule",
+            schedule=events.Schedule.rate(Duration.hours(1)),
+        )
+        schedule_rule.add_target(
+            targets.LambdaFunction(
+                fn,
+                event=events.RuleTargetInput.from_object(
+                    {
+                        "rawPath": "/watch",
+                        "requestContext": {"http": {"method": "POST"}},
+                    }
+                ),
+            )
+        )
 
         # --- S3 + CloudFront static site ---------------------------------
         site_bucket = s3.Bucket(
