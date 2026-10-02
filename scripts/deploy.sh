@@ -1,28 +1,29 @@
 #!/usr/bin/env bash
 #
-# Kinga Maji — live deploy + proof script (FEAT-004).
+# Kinga Maji — live deploy + proof script.
 #
 # Vendors the deterministic engine beside the Lambda handler, deploys the CDK
-# stack under the simi-ops profile in us-east-1, injects the real API URL into
-# the static front-end, seeds DynamoDB, then curl-proves the live, no-auth app.
+# stack with your configured AWS profile in us-east-1, injects the real API URL
+# into the static front-end, seeds DynamoDB, then curl-proves the live, no-auth app.
 #
 # Idempotent / re-runnable: safe to run repeatedly (cdk deploy is a no-op when
 # nothing changed; /seed is one item per settlement).
 #
-# Usage:  bash scripts/deploy.sh
-#
+# Usage:  AWS_PROFILE=<your-profile> bash scripts/deploy.sh
+#         (defaults to your current AWS credentials / default profile)
 set -euo pipefail
 
-# --- Fixed environment (profile has NO default region: pin it) ---------------
-export AWS_PROFILE=simi-ops
-export AWS_DEFAULT_REGION=us-east-1
-export AWS_REGION=us-east-1
+# --- Environment: use the caller's AWS profile; pin a region (some profiles
+#     have no default region) ------------------------------------------------
+export AWS_PROFILE="${AWS_PROFILE:-default}"
+export AWS_DEFAULT_REGION="${AWS_DEFAULT_REGION:-us-east-1}"
+export AWS_REGION="$AWS_DEFAULT_REGION"
 
 # Resolve the deploy account from the active profile so cdk/app.py stays
 # account-agnostic (the repo is not hardwired to one AWS account).
 export CDK_DEPLOY_ACCOUNT="$(aws sts get-caller-identity --query Account --output text)"
-export CDK_DEPLOY_REGION=us-east-1
-echo "==> deploy account = $CDK_DEPLOY_ACCOUNT (resolved from $AWS_PROFILE)"
+export CDK_DEPLOY_REGION="$AWS_DEFAULT_REGION"
+echo "==> deploy account = $CDK_DEPLOY_ACCOUNT (resolved from profile $AWS_PROFILE)"
 
 # --- Resolve absolute paths (run from anywhere) ------------------------------
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
