@@ -1,0 +1,31 @@
+{
+  "id": "FEAT-003",
+  "type": "feat",
+  "description": "Static mobile-first single-page front-end (web/index.html): Leaflet map of Nairobi with Mathare/Mukuru markers colored by latest risk, an upload+demo panel POSTing to /analyze and rendering depth + FULL deterministic trace, and a latest-alerts panel reading /reports. Renders fine cold with no auth; API base is a __API_URL__ placeholder. Independent of FEAT-001/002.",
+  "status": "completed",
+  "steps": [
+    "Create web/index.html as a single self-contained file: inline <style> (mobile-first, system font, max-width container) and inline <script>. Load Leaflet CSS+JS from https://unpkg.com/leaflet@1.9.4/dist/leaflet.css and leaflet.js.",
+    "Define const API = '__API_URL__'; (deploy.sh rewrites this). Define settlement coords Mathare [-1.2595,36.8580], Mukuru [-1.3167,36.8667] and a CATEGORY_COLORS map (nuisance green, ankle yellow-green, impassable_boda orange, dangerous red-orange, evacuate red).",
+    "Header: title 'Kinga Maji - guard the water' and a one-line explainer that a photo + a known-height reference object yields a traceable flood depth.",
+    "Map: Leaflet map centered [-1.2864,36.8172] zoom 12 with OSM tiles; a circle/marker per settlement colored by its latest report category; popup shows settlement, final_label, advice, depth_m.",
+    "Upload panel: select settlement (Mathare/Mukuru), select reference object (doorframe, jerrycan_20l, car_tyre, brick_course, matatu_wheel with friendly labels), file input (accept image/* capture=environment), 'Analyze photo' button and 'Run demo (no photo)' button. Analyze reads the file as base64 (strip data: prefix) and POSTs {settlement, reference_object, image_base64} to API+'/analyze'; demo button POSTs {demo:true, settlement, reference_object}.",
+    "Result rendering: show depth_m, final_label, advice prominently, then render the returned trace array as a numbered <ol class=trace> (clearly labelled 'How this number was computed') — this is the scored, checkable part.",
+    "Alerts panel: on load, fetch API+'/reports', list each report (settlement, final_label, advice, timestamp) and recolor the map markers from the newest report per settlement.",
+    "Resilience: wrap all fetches in try/catch; if API is the literal placeholder or a fetch fails, keep the page rendering (show map + a friendly 'connecting...' note) so an automated cold scorer still sees a valid populated page. Never block initial render on a fetch."
+  ],
+  "acceptance_criteria": [
+    "web/index.html is a single file that references Leaflet via CDN and contains the __API_URL__ placeholder.",
+    "The page defines both settlement markers and renders them even before any fetch resolves.",
+    "The reference-object select lists exactly the five engine keys.",
+    "The result area renders the full trace array as an ordered list.",
+    "Opening the file in a browser (or loading its HTML) shows a map and panels with no login and no uncaught error when the API is unreachable."
+  ],
+  "verification": [
+    "test -f web/index.html && echo FILE_OK",
+    "grep -qi 'leaflet' web/index.html && grep -q '__API_URL__' web/index.html && echo PLACEHOLDER_AND_CDN_OK",
+    "grep -q 'jerrycan_20l' web/index.html && grep -q 'matatu_wheel' web/index.html && echo REFERENCES_OK",
+    "python3 -c \"import re,sys; h=open('web/index.html').read(); assert '/analyze' in h and '/reports' in h; print('ROUTES_OK')\""
+  ],
+  "blocked_reason": null,
+  "findings": "Implemented web/index.html as a single self-contained mobile-first file. Leaflet 1.9.4 CSS+JS loaded via unpkg CDN with correct SRI integrity hashes. const API = '__API_URL__' placeholder present for deploy-time rewrite. Nairobi map centered [-1.2864,36.8172] zoom 12 with OSM tiles; two circleMarkers (Mathare -1.2595/36.8580, Mukuru -1.3167/36.8667) rendered synchronously at load, before any fetch, each starting grey and recoloured from the latest /reports category. CATEGORY_COLORS covers all five engine keys plus error/unknown. Reference-object <select> lists EXACTLY the five engine keys (doorframe, jerrycan_20l, car_tyre, brick_course, matatu_wheel) with friendly labels. 'Analyze photo' reads the file via FileReader, strips the data: prefix, and POSTs {settlement, reference_object, image_base64} to API+'/analyze'; 'Run demo (no photo)' POSTs {demo:true, settlement, reference_object}. Result area shows depth_m + final_label + advice prominently and renders the FULL trace array as a numbered <ol class=trace> labelled 'How this number was computed'. Alerts panel fetches API+'/reports' on load, lists each report (settlement, final_label, advice, relative timestamp) and recolours markers from the newest report per settlement. ALL fetches wrapped in try/catch; map creation also wrapped; when API === '__API_URL__' or a fetch fails the page still renders the map and panels with friendly notes and no uncaught error (cold-render safe, no auth). All four FEAT-003 verification commands pass (FILE_OK, PLACEHOLDER_AND_CDN_OK, REFERENCES_OK, ROUTES_OK); extra checks confirm all five keys, demo:true, image_base64, balanced script/style tags, and all five colour keys."
+}

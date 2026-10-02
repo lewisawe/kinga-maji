@@ -2,16 +2,399 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Kinga Maji</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>Kinga Maji — guard the water</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+  <style>
+    :root {
+      --bg: #0f1720;
+      --panel: #16222e;
+      --panel-2: #1d2d3b;
+      --line: #27384a;
+      --text: #e7eef5;
+      --muted: #9fb3c5;
+      --accent: #2bb3c0;
+      --accent-ink: #04121a;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); }
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.45;
+      -webkit-text-size-adjust: 100%;
+    }
+    .wrap { max-width: 720px; margin: 0 auto; padding: 16px 14px 48px; }
+    header h1 { font-size: 1.5rem; margin: 0 0 4px; letter-spacing: .2px; }
+    header p.sub { margin: 0 0 14px; color: var(--muted); font-size: .92rem; }
+    #map {
+      height: 320px; width: 100%; border-radius: 12px;
+      border: 1px solid var(--line); background: #0b1218;
+    }
+    .panel {
+      background: var(--panel); border: 1px solid var(--line);
+      border-radius: 12px; padding: 14px; margin-top: 16px;
+    }
+    .panel h2 { font-size: 1.05rem; margin: 0 0 10px; }
+    label { display: block; font-size: .82rem; color: var(--muted); margin: 10px 0 4px; }
+    select, input[type=file] {
+      width: 100%; padding: 10px; border-radius: 8px;
+      border: 1px solid var(--line); background: var(--panel-2);
+      color: var(--text); font-size: .95rem;
+    }
+    .btn-row { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+    button {
+      flex: 1 1 auto; min-width: 140px; padding: 12px 14px; border: 0; border-radius: 9px;
+      font-size: .98rem; font-weight: 600; cursor: pointer;
+    }
+    button.primary { background: var(--accent); color: var(--accent-ink); }
+    button.ghost { background: transparent; color: var(--text); border: 1px solid var(--line); }
+    button:disabled { opacity: .55; cursor: progress; }
+    .note { font-size: .82rem; color: var(--muted); margin-top: 10px; }
+    .result { margin-top: 16px; display: none; }
+    .result.show { display: block; }
+    .result .headline {
+      display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+      padding: 12px; border-radius: 10px; background: var(--panel-2);
+      border-left: 6px solid var(--muted);
+    }
+    .result .depth { font-size: 1.8rem; font-weight: 700; }
+    .result .label { font-size: 1.05rem; font-weight: 600; }
+    .result .advice { margin: 10px 2px 2px; }
+    .trace-wrap { margin-top: 14px; }
+    .trace-wrap h3 { font-size: .95rem; margin: 0 0 6px; }
+    ol.trace {
+      margin: 0; padding-left: 22px; background: var(--panel-2);
+      border: 1px solid var(--line); border-radius: 10px; padding: 12px 12px 12px 32px;
+    }
+    ol.trace li { margin: 4px 0; font-size: .9rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .alerts { list-style: none; margin: 0; padding: 0; }
+    .alerts li {
+      padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px;
+      margin-bottom: 8px; background: var(--panel-2);
+    }
+    .alerts .a-top { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+    .alerts .a-settlement { font-weight: 600; }
+    .alerts .a-time { color: var(--muted); font-size: .78rem; }
+    .alerts .a-label { font-size: .9rem; margin-top: 2px; }
+    .alerts .a-advice { color: var(--muted); font-size: .84rem; margin-top: 2px; }
+    .dot {
+      display: inline-block; width: 10px; height: 10px; border-radius: 50%;
+      margin-right: 6px; vertical-align: middle; border: 1px solid rgba(0,0,0,.3);
+    }
+    .err { color: #ff9b8a; }
+    footer { margin-top: 24px; color: var(--muted); font-size: .76rem; text-align: center; }
+  </style>
 </head>
 <body>
-  <!-- Placeholder page: FEAT-003 replaces this with the real Leaflet map UI.
-       API base is injected at deploy time where __API_URL__ appears. -->
-  <main>
-    <h1>Kinga Maji — guard the water</h1>
-    <p>Flood-depth reporting for Mathare &amp; Mukuru. Site loading…</p>
-    <!-- API: __API_URL__ -->
-  </main>
+  <div class="wrap">
+    <header>
+      <h1>Kinga Maji — guard the water</h1>
+      <p class="sub">Snap a flood photo next to a known-height object (a doorframe, a 20 L jerrycan, a matatu wheel). We turn that one object into a traceable flood depth — every metre is shown step by step.</p>
+    </header>
+
+    <div id="map"></div>
+
+    <section class="panel">
+      <h2>Report a flood</h2>
+      <label for="settlement">Settlement</label>
+      <select id="settlement">
+        <option value="Mathare">Mathare</option>
+        <option value="Mukuru">Mukuru</option>
+      </select>
+
+      <label for="refobj">Reference object (known height)</label>
+      <select id="refobj">
+        <option value="doorframe">Doorframe (2.00 m)</option>
+        <option value="jerrycan_20l">20 L jerrycan (0.46 m)</option>
+        <option value="car_tyre">Car tyre (0.63 m)</option>
+        <option value="brick_course">Brick course (0.075 m)</option>
+        <option value="matatu_wheel">Matatu wheel (1.00 m)</option>
+      </select>
+
+      <label for="photo">Flood photo</label>
+      <input id="photo" type="file" accept="image/*" capture="environment">
+
+      <div class="btn-row">
+        <button id="analyzeBtn" class="primary">Analyze photo</button>
+        <button id="demoBtn" class="ghost">Run demo (no photo)</button>
+      </div>
+      <p class="note" id="statusNote">Pick a settlement and object, then analyze a photo — or run the demo to see a worked example.</p>
+
+      <div class="result" id="result">
+        <div class="headline" id="headline">
+          <span class="depth" id="depth">—</span>
+          <span class="label" id="label"></span>
+        </div>
+        <p class="advice" id="advice"></p>
+        <div class="trace-wrap">
+          <h3>How this number was computed</h3>
+          <ol class="trace" id="trace"></ol>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Latest alerts</h2>
+      <ul class="alerts" id="alerts">
+        <li class="note">Connecting to the reporting network…</li>
+      </ul>
+    </section>
+
+    <footer>
+      Kinga Maji · Social Good — Climate resilience · Mathare &amp; Mukuru, Nairobi.
+      Depths are computed by a deterministic engine, never guessed by the model.
+    </footer>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-o9N1jGDZrf5tS+Ft4gbIK7mYMipq9lqpVJ91xHSyKGg=" crossorigin=""></script>
+  <script>
+    // Deploy pipeline rewrites this placeholder with the live API base URL.
+    const API = '__API_URL__';
+
+    const SETTLEMENTS = {
+      Mathare: { lat: -1.2595, lon: 36.8580 },
+      Mukuru:  { lat: -1.3167, lon: 36.8667 }
+    };
+
+    // Engine category keys -> marker colour (green = safe, red = evacuate).
+    const CATEGORY_COLORS = {
+      nuisance:        '#2ecc71',  // green
+      ankle:           '#a3d64b',  // yellow-green
+      impassable_boda: '#f39c12',  // orange
+      dangerous:       '#e8603c',  // red-orange
+      evacuate:        '#e03131',  // red
+      error:           '#9fb3c5',  // grey (unknown)
+      unknown:         '#9fb3c5'
+    };
+
+    function colorFor(key) {
+      return CATEGORY_COLORS[key] || CATEGORY_COLORS.unknown;
+    }
+
+    // ----- Map (renders immediately, before any fetch) -----
+    let map, markers = {};
+    try {
+      map = L.map('map', { scrollWheelZoom: false }).setView([-1.2864, 36.8172], 12);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(map);
+
+      Object.keys(SETTLEMENTS).forEach(function (name) {
+        const s = SETTLEMENTS[name];
+        const m = L.circleMarker([s.lat, s.lon], {
+          radius: 13, color: '#04121a', weight: 2,
+          fillColor: colorFor('unknown'), fillOpacity: 0.9
+        }).addTo(map);
+        m.bindPopup('<b>' + name + '</b><br>Awaiting latest report…');
+        markers[name] = m;
+      });
+    } catch (e) {
+      // Leaflet CDN unreachable — the rest of the page still works.
+      const el = document.getElementById('map');
+      if (el) { el.innerHTML = '<p style="padding:14px;color:#9fb3c5">Map unavailable offline.</p>'; }
+    }
+
+    function setMarker(name, report) {
+      const m = markers[name];
+      if (!m) return;
+      m.setStyle({ fillColor: colorFor(report.category_key) });
+      const depth = (report.depth_m != null) ? Number(report.depth_m).toFixed(2) + ' m' : '—';
+      m.bindPopup(
+        '<b>' + name + '</b><br>' +
+        '<b>' + (report.final_label || report.category_key || 'Unknown') + '</b><br>' +
+        (report.advice || '') + '<br>' +
+        'Depth: ' + depth
+      );
+    }
+
+    // ----- Result rendering -----
+    function renderResult(data) {
+      const result = document.getElementById('result');
+      const depthEl = document.getElementById('depth');
+      const labelEl = document.getElementById('label');
+      const adviceEl = document.getElementById('advice');
+      const traceEl = document.getElementById('trace');
+      const headline = document.getElementById('headline');
+
+      const depthM = (data.depth_m != null) ? Number(data.depth_m).toFixed(2) + ' m' : '—';
+      depthEl.textContent = depthM;
+      labelEl.textContent = data.final_label || data.category_label || '';
+      adviceEl.textContent = data.advice || '';
+      headline.style.borderLeftColor = colorFor(data.category_key);
+
+      traceEl.innerHTML = '';
+      const trace = Array.isArray(data.trace) ? data.trace : [];
+      if (trace.length === 0) {
+        const li = document.createElement('li');
+        li.textContent = 'No trace returned.';
+        traceEl.appendChild(li);
+      } else {
+        trace.forEach(function (step) {
+          const li = document.createElement('li');
+          li.textContent = String(step);
+          traceEl.appendChild(li);
+        });
+      }
+      result.classList.add('show');
+
+      // Reflect this fresh reading on the map immediately.
+      if (data.settlement) {
+        setMarker(data.settlement, {
+          category_key: data.category_key,
+          final_label: data.final_label,
+          advice: data.advice,
+          depth_m: data.depth_m
+        });
+      }
+    }
+
+    function setStatus(msg, isErr) {
+      const n = document.getElementById('statusNote');
+      n.textContent = msg;
+      n.classList.toggle('err', !!isErr);
+    }
+
+    function setBusy(busy) {
+      document.getElementById('analyzeBtn').disabled = busy;
+      document.getElementById('demoBtn').disabled = busy;
+    }
+
+    async function postAnalyze(payload) {
+      if (!API || API === '__API_URL__') {
+        setStatus('Live API not wired yet (preview mode). Deploy injects the real URL.', true);
+        return;
+      }
+      setBusy(true);
+      setStatus('Analyzing…');
+      try {
+        const res = await fetch(API + '/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok || data.ok === false) {
+          setStatus('Could not analyze: ' + (data.error || res.status), true);
+        } else {
+          setStatus('Done. Depth computed deterministically from your reference object.');
+          renderResult(data);
+          loadReports(); // refresh alerts + markers
+        }
+      } catch (e) {
+        setStatus('Network error reaching the analyzer. Try the demo instead.', true);
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    function fileToBase64(file) {
+      return new Promise(function (resolve, reject) {
+        const reader = new FileReader();
+        reader.onload = function () {
+          const out = String(reader.result || '');
+          const comma = out.indexOf(',');       // strip "data:image/...;base64,"
+          resolve(comma >= 0 ? out.slice(comma + 1) : out);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    document.getElementById('analyzeBtn').addEventListener('click', async function () {
+      const settlement = document.getElementById('settlement').value;
+      const reference_object = document.getElementById('refobj').value;
+      const fileInput = document.getElementById('photo');
+      const file = fileInput.files && fileInput.files[0];
+      if (!file) {
+        setStatus('Choose a flood photo first, or run the demo.', true);
+        return;
+      }
+      try {
+        const image_base64 = await fileToBase64(file);
+        await postAnalyze({ settlement: settlement, reference_object: reference_object, image_base64: image_base64 });
+      } catch (e) {
+        setStatus('Could not read that photo. Try another, or run the demo.', true);
+      }
+    });
+
+    document.getElementById('demoBtn').addEventListener('click', function () {
+      const settlement = document.getElementById('settlement').value;
+      const reference_object = document.getElementById('refobj').value;
+      postAnalyze({ demo: true, settlement: settlement, reference_object: reference_object });
+    });
+
+    // ----- Alerts + marker recolouring -----
+    function timeAgo(iso) {
+      if (!iso) return '';
+      try {
+        const t = new Date(iso).getTime();
+        if (isNaN(t)) return iso;
+        const diff = Math.max(0, Date.now() - t);
+        const mins = Math.round(diff / 60000);
+        if (mins < 1) return 'just now';
+        if (mins < 60) return mins + ' min ago';
+        const hrs = Math.round(mins / 60);
+        if (hrs < 24) return hrs + ' h ago';
+        return Math.round(hrs / 24) + ' d ago';
+      } catch (e) { return iso; }
+    }
+
+    function renderAlerts(reports) {
+      const ul = document.getElementById('alerts');
+      ul.innerHTML = '';
+      if (!reports || reports.length === 0) {
+        const li = document.createElement('li');
+        li.className = 'note';
+        li.textContent = 'No reports yet. Be the first to report a flood above.';
+        ul.appendChild(li);
+        return;
+      }
+      // Newest report per settlement -> recolour markers.
+      const newestBySettlement = {};
+      reports.forEach(function (r) {
+        const s = r.settlement;
+        if (!newestBySettlement[s] || String(r.timestamp) > String(newestBySettlement[s].timestamp)) {
+          newestBySettlement[s] = r;
+        }
+      });
+      Object.keys(newestBySettlement).forEach(function (s) {
+        setMarker(s, newestBySettlement[s]);
+      });
+
+      reports.forEach(function (r) {
+        const li = document.createElement('li');
+        li.innerHTML =
+          '<div class="a-top">' +
+            '<span class="a-settlement"><span class="dot" style="background:' + colorFor(r.category_key) + '"></span>' +
+              (r.settlement || 'Unknown') + '</span>' +
+            '<span class="a-time">' + timeAgo(r.timestamp) + '</span>' +
+          '</div>' +
+          '<div class="a-label">' + (r.final_label || r.category_key || '') + '</div>' +
+          '<div class="a-advice">' + (r.advice || '') + '</div>';
+        ul.appendChild(li);
+      });
+    }
+
+    async function loadReports() {
+      const ul = document.getElementById('alerts');
+      if (!API || API === '__API_URL__') {
+        ul.innerHTML = '<li class="note">Live alerts appear here once the app is deployed (preview mode).</li>';
+        return;
+      }
+      try {
+        const res = await fetch(API + '/reports');
+        const data = await res.json();
+        renderAlerts(data.reports || []);
+      } catch (e) {
+        ul.innerHTML = '<li class="note err">Could not reach the reporting network. The map is still live above.</li>';
+      }
+    }
+
+    // Kick off non-blocking (page already rendered map + panels).
+    loadReports();
+  </script>
 </body>
 </html>
