@@ -25,6 +25,7 @@ ENGINE="$ROOT/engine/depth_engine.py"
 LAMBDA_DIR="$ROOT/lambda"
 CDK_DIR="$ROOT/cdk"
 WEB_INDEX="$ROOT/web/index.html"
+WEB_APP="$ROOT/web/app.html"
 OUTPUTS="$CDK_DIR/outputs.json"
 
 echo "==> Kinga Maji deploy  (profile=$AWS_PROFILE region=$AWS_DEFAULT_REGION)"
@@ -68,24 +69,28 @@ API_URL="${API_URL%/}"
 echo "    ApiUrl        = $API_URL"
 echo "    CloudFrontURL = $CF_URL"
 
-# --- 5. Inject real API URL into web/index.html, re-upload + invalidate ------
-echo "==> [5/9] Injecting API URL into web/index.html and re-deploying asset"
-# Rewrite the placeholder in place (idempotent: replaces whatever is currently there).
-python3 - "$WEB_INDEX" "$API_URL" <<'PY'
+# --- 5. Inject real API URL into web/*.html, re-upload + invalidate ----------
+echo "==> [5/9] Injecting API URL into web/index.html + web/app.html and re-deploying asset"
+# Rewrite the placeholder in place for BOTH pages (idempotent: replaces whatever
+# is currently there). Both files share the __API_URL__ placeholder and the
+# `const API = '...';` line, so the same two replacements apply to each.
+python3 - "$API_URL" "$WEB_INDEX" "$WEB_APP" <<'PY'
 import re, sys
-path, api = sys.argv[1], sys.argv[2]
-with open(path, "r", encoding="utf-8") as f:
-    html = f.read()
-# Replace both the raw placeholder and any previously-injected endpoint value.
-html = html.replace("__API_URL__", api)
-html = re.sub(r"const API = '[^']*';", "const API = '%s';" % api, html, count=1)
-with open(path, "w", encoding="utf-8") as f:
-    f.write(html)
-print("    wrote API =", api)
+api = sys.argv[1]
+for path in sys.argv[2:]:
+    with open(path, "r", encoding="utf-8") as f:
+        html = f.read()
+    # Replace both the raw placeholder and any previously-injected endpoint value.
+    html = html.replace("__API_URL__", api)
+    html = re.sub(r"const API = '[^']*';", "const API = '%s';" % api, html, count=1)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(html)
+    print("    wrote API =", api, "->", path)
 PY
 
-# Re-run cdk deploy so the BucketDeployment re-uploads the API-injected index.html
-# and invalidates CloudFront. This is the reliable path (asset hash changed).
+# Re-run cdk deploy so the BucketDeployment re-uploads the API-injected
+# index.html + app.html and invalidates CloudFront. This is the reliable path
+# (asset hash changed).
 "$CDK" deploy KingaMajiStack --require-approval never --outputs-file "$OUTPUTS"
 
 # --- 6. Seed DynamoDB so /reports is populated for judges --------------------
@@ -135,6 +140,20 @@ else
 fi
 if echo "$cf_html" | grep -q "__API_URL__"; then
   echo "    FAIL placeholder __API_URL__ still present"; fail=1
+fi
+
+# Also verify the restyled tool page is served and API-injected.
+app_html="$(curl -s "$CF_URL/app.html")"
+app_code="$(curl -s -o /dev/null -w '%{http_code}' "$CF_URL/app.html")"
+echo "    CloudFront /app.html -> $app_code"
+[ "$app_code" = "200" ] || { echo "    FAIL CloudFront /app.html"; fail=1; }
+if echo "$app_html" | grep -q "$API_URL"; then
+  echo "    app.html injected API URL -> yes"
+else
+  echo "    FAIL app.html injected API URL missing (still placeholder?)"; fail=1
+fi
+if echo "$app_html" | grep -q "__API_URL__"; then
+  echo "    FAIL app.html placeholder __API_URL__ still present"; fail=1
 fi
 
 echo

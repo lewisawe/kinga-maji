@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kinga Maji — check the water</title>
+  <meta name="description" content="Turn one known-height object in a flood photo into a traceable depth in metres. Every number is computed by a deterministic engine and shown step by step.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+  <link rel="stylesheet" href="kinga.css">
+  <style>
+    .app-main { padding: 24px 0 56px; }
+    .app-grid { display: grid; grid-template-columns: 1fr; gap: 20px; }
+    @media (min-width: 900px) {
+      .app-grid { grid-template-columns: 1.2fr 1fr; align-items: start; }
+      .app-grid .col-wide { grid-column: 1; }
+      .app-grid .col-side { grid-column: 2; }
+    }
+    .page-intro { margin-bottom: 20px; }
+    .page-intro h1 { font-size: clamp(1.5rem, 3.5vw, 2rem); }
+    .page-intro p { color: var(--color-muted-foreground); margin: 8px 0 0; max-width: 68ch; }
+
+    #map {
+      height: 340px; width: 100%; border-radius: var(--radius);
+      border: 1px solid var(--color-border); background: #dff3ea;
+    }
+    .panel h2 { font-size: 1.1rem; display: flex; align-items: center; gap: 8px; margin: 0 0 12px; }
+    .panel h2 svg { color: var(--color-primary); }
+
+    .btn-row { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+    .btn-row .btn { flex: 1 1 160px; }
+    .note { font-size: 0.85rem; color: var(--color-muted-foreground); margin-top: 12px; }
+    .note.err { color: var(--risk-dangerous); font-weight: 500; }
+
+    /* result card — colored by category_key, but label + metres always shown */
+    .result { margin-top: 18px; display: none; }
+    .result.show { display: block; }
+    .result-card {
+      border: 1px solid var(--color-border); border-left: 8px solid var(--risk-neutral);
+      border-radius: var(--radius); background: var(--color-card); overflow: hidden;
+    }
+    .result-head {
+      display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+      padding: 16px 18px; color: #fff; background: var(--risk-neutral);
+    }
+    .result-head .depth { font-size: 2rem; font-weight: 700; line-height: 1; }
+    .result-head .label { font-size: 1.05rem; font-weight: 600; }
+    .result-head svg { flex: none; }
+    .result-body { padding: 16px 18px; }
+    .result-body .advice { margin: 0 0 4px; font-size: 1rem; }
+    .trace-wrap { margin-top: 16px; }
+    .trace-wrap h3 { font-size: 0.95rem; margin: 0 0 8px; display: flex; align-items: center; gap: 6px; }
+    ol.trace {
+      margin: 0; padding: 14px 14px 14px 34px; list-style: decimal;
+      background: var(--color-muted); border: 1px solid var(--color-border); border-radius: 12px;
+    }
+    ol.trace li { margin: 5px 0; font-size: 0.88rem; color: var(--color-foreground); }
+
+    /* alerts */
+    .alerts { list-style: none; margin: 0; padding: 0; }
+    .alerts li.alert {
+      padding: 12px 14px; border: 1px solid var(--color-border); border-radius: 12px;
+      margin-bottom: 10px; background: var(--color-card);
+    }
+    .alerts .a-top { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+    .alerts .a-settlement { font-weight: 600; display: inline-flex; align-items: center; gap: 7px; }
+    .alerts .a-time { color: var(--color-muted-foreground); font-size: 0.78rem; }
+    .alerts .a-label { font-size: 0.92rem; margin-top: 4px; font-weight: 500; }
+    .alerts .a-metres { font-family: 'Fira Code', monospace; font-size: 0.85rem; color: var(--color-muted-foreground); }
+    .alerts .a-advice { color: var(--color-muted-foreground); font-size: 0.84rem; margin-top: 2px; }
+    .dot {
+      display: inline-block; width: 12px; height: 12px; border-radius: 50%;
+      vertical-align: middle; border: 1px solid rgba(6,78,59,.25);
+    }
+    .reduced-note { font-size: 0.8rem; color: var(--color-muted-foreground); margin-top: 6px; }
+  </style>
+</head>
+<body>
+  <!-- Shared header -->
+  <header class="header">
+    <div class="header-inner">
+      <a class="brand" href="index.html">
+        <span class="brand-icon" aria-hidden="true">
+          <svg width="26" height="26" viewBox="0 0 256 256" fill="currentColor"><path d="M174,47.75a254.19,254.19,0,0,0-41.45-38.3,8,8,0,0,0-9.18,0A254.19,254.19,0,0,0,82,47.75C54.51,79.32,40,112.6,40,144a88,88,0,0,0,176,0C216,112.6,201.49,79.32,174,47.75ZM128,216a72.08,72.08,0,0,1-72-72c0-57.23,55.47-105,72-118,16.53,13,72,60.75,72,118A72.08,72.08,0,0,1,128,216Zm55.89-62.66a57.6,57.6,0,0,1-46.56,46.55A8.75,8.75,0,0,1,136,200a8,8,0,0,1-1.32-15.89c16.57-2.79,30.63-16.85,33.44-33.45a8,8,0,0,1,15.78,2.68Z"/></svg>
+        </span>
+        Kinga Maji
+      </a>
+      <nav class="nav" aria-label="Primary">
+        <a href="index.html">
+          <svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M218.83,103.77l-80-75.48a1.14,1.14,0,0,1-.11-.11,16,16,0,0,0-21.53,0l-.11.11L37.17,103.77A16,16,0,0,0,32,115.55V208a16,16,0,0,0,16,16H96a16,16,0,0,0,16-16V160h32v48a16,16,0,0,0,16,16h48a16,16,0,0,0,16-16V115.55A16,16,0,0,0,218.83,103.77ZM208,208H160V160a16,16,0,0,0-16-16H112a16,16,0,0,0-16,16v48H48V115.55l.11-.1L128,40l79.9,75.43.11.1Z"/></svg>
+          <span class="nav-label">Home</span>
+        </a>
+        <a href="app.html" aria-current="page">
+          <svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M174,47.75a254.19,254.19,0,0,0-41.45-38.3,8,8,0,0,0-9.18,0A254.19,254.19,0,0,0,82,47.75C54.51,79.32,40,112.6,40,144a88,88,0,0,0,176,0C216,112.6,201.49,79.32,174,47.75Z"/></svg>
+          <span class="nav-label">Check the water</span>
+        </a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="app-main">
+    <div class="container">
+      <div class="page-intro">
+        <h1>Check the water</h1>
+        <p>Snap a flood photo next to a known-height object — a doorframe, a 20&nbsp;L jerrycan, a matatu wheel. The engine turns that one object into a traceable flood depth in metres, and shows every step.</p>
+      </div>
+
+      <div class="app-grid">
+        <div class="col-wide">
+          <div id="map" role="img" aria-label="Map of Mathare and Mukuru with latest flood risk markers"></div>
+
+          <section class="panel" style="margin-top:20px;">
+            <h2>
+              <svg width="22" height="22" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M174,47.75a254.19,254.19,0,0,0-41.45-38.3,8,8,0,0,0-9.18,0A254.19,254.19,0,0,0,82,47.75C54.51,79.32,40,112.6,40,144a88,88,0,0,0,176,0C216,112.6,201.49,79.32,174,47.75Z"/></svg>
+              Report a flood
+            </h2>
+
+            <label class="field-label" for="settlement">Settlement</label>
+            <select id="settlement">
+              <option value="Mathare">Mathare</option>
+              <option value="Mukuru">Mukuru</option>
+            </select>
+
+            <label class="field-label" for="refobj">Reference object (known height)</label>
+            <select id="refobj">
+              <option value="doorframe">Doorframe (2.03 m)</option>
+              <option value="jerrycan_20l">20 L jerrycan (0.46 m)</option>
+              <option value="car_tyre">Car tyre (0.63 m)</option>
+              <option value="brick_course">Brick course (0.075 m)</option>
+              <option value="matatu_wheel">Matatu wheel (0.70 m)</option>
+            </select>
+
+            <label class="field-label" for="photo">Flood photo</label>
+            <input id="photo" type="file" accept="image/*" capture="environment">
+
+            <div class="btn-row">
+              <button id="analyzeBtn" class="btn btn-primary">
+                <svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M229.66,218.34l-50.07-50.06a88.11,88.11,0,1,0-11.31,11.31l50.06,50.07a8,8,0,0,0,11.32-11.32ZM40,112a72,72,0,1,1,72,72A72.08,72.08,0,0,1,40,112Z"/></svg>
+                Analyze photo
+              </button>
+              <button id="demoBtn" class="btn btn-ghost">
+                <svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M232.4,114.49,88.32,26.35a16,16,0,0,0-16.2-.3A15.86,15.86,0,0,0,64,39.87V216.13A15.94,15.94,0,0,0,80,232a16.07,16.07,0,0,0,8.36-2.35L232.4,141.51a15.81,15.81,0,0,0,0-27ZM80,215.94V40l143.83,88Z"/></svg>
+                Run demo (no photo)
+              </button>
+            </div>
+            <p class="note" id="statusNote">Pick a settlement and object, then analyze a photo — or run the demo to see a worked example.</p>
+
+            <div class="result" id="result">
+              <div class="result-card" id="resultCard">
+                <div class="result-head" id="headline">
+                  <svg id="headIcon" width="28" height="28" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm-8-80V80a8,8,0,0,1,16,0v56a8,8,0,0,1-16,0Zm20,36a12,12,0,1,1-12-12A12,12,0,0,1,140,172Z"/></svg>
+                  <span class="depth num" id="depth">—</span>
+                  <span class="label" id="label"></span>
+                </div>
+                <div class="result-body">
+                  <p class="advice" id="advice"></p>
+                  <div class="trace-wrap">
+                    <h3>
+                      <svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,160H40V56H216V200ZM88,96a8,8,0,0,1,8-8h80a8,8,0,0,1,0,16H96A8,8,0,0,1,88,96Zm0,32a8,8,0,0,1,8-8h80a8,8,0,0,1,0,16H96A8,8,0,0,1,88,128Zm0,32a8,8,0,0,1,8-8h80a8,8,0,0,1,0,16H96A8,8,0,0,1,88,160ZM60,96a8,8,0,1,1,8,8A8,8,0,0,1,60,96Zm0,32a8,8,0,1,1,8,8A8,8,0,0,1,60,128Zm0,32a8,8,0,1,1,8,8A8,8,0,0,1,60,160Z"/></svg>
+                      How this number was computed
+                    </h3>
+                    <ol class="trace mono" id="trace"></ol>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div class="col-side">
+          <section class="panel">
+            <h2>
+              <svg width="22" height="22" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm-8,56a8,8,0,0,1,16,0v56a8,8,0,0,1-16,0Zm8,104a12,12,0,1,1,12-12A12,12,0,0,1,128,184Z"/></svg>
+              Latest alerts
+            </h2>
+            <ul class="alerts" id="alerts">
+              <li class="note">Connecting to the reporting network…</li>
+            </ul>
+          </section>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      Kinga Maji · Social Good — Climate resilience · Mathare &amp; Mukuru, Nairobi.
+      Depths are computed by a deterministic engine, never guessed by the model.
+      This tool does <strong>not</strong> replace official emergency services.
+    </div>
+  </footer>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-o9N1jGDZrf5tS+Ft4gbIK7mYMipq9lqpVJ91xHSyKGg=" crossorigin=""></script>
+  <script src="kinga.js"></script>
+  <script>
+    // Deploy pipeline rewrites this placeholder with the live API base URL.
+    const API = '__API_URL__';
+
+    const SETTLEMENTS = {
+      Mathare: { lat: -1.2595, lon: 36.8580 },
+      Mukuru:  { lat: -1.3167, lon: 36.8667 }
+    };
+
+    // Risk color + label come from the shared Kinga helper (single source of truth).
+    function colorFor(key) { return Kinga.riskColor(key); }
+    function labelFor(key) { return Kinga.riskLabel(key); }
+
+    // Phosphor WarningCircle vs CheckCircle paths for the result head icon.
+    const ICON_SAFE = '<path d="M173.66,98.34a8,8,0,0,1,0,11.32l-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35A8,8,0,0,1,173.66,98.34ZM232,128A104,104,0,1,1,128,24,104.11,104.11,0,0,1,232,128Zm-16,0a88,88,0,1,0-88,88A88.1,88.1,0,0,0,216,128Z"/>';
+    const ICON_WARN = '<path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm-8,56a8,8,0,0,1,16,0v56a8,8,0,0,1-16,0Zm8,104a12,12,0,1,1,12-12A12,12,0,0,1,128,184Z"/>';
+    const SAFE_KEYS = { nuisance: true, ankle: true };
+
+    // ----- Map (renders immediately, before any fetch) -----
+    let map, markers = {};
+    try {
+      map = L.map('map', { scrollWheelZoom: false }).setView([-1.2864, 36.8172], 12);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(map);
+
+      Object.keys(SETTLEMENTS).forEach(function (name) {
+        const s = SETTLEMENTS[name];
+        const m = L.circleMarker([s.lat, s.lon], {
+          radius: 13, color: '#064E3B', weight: 2,
+          fillColor: colorFor('unknown'), fillOpacity: 0.9
+        }).addTo(map);
+        m.bindPopup('<b>' + name + '</b><br>Awaiting latest report…');
+        markers[name] = m;
+      });
+    } catch (e) {
+      // Leaflet CDN unreachable — the rest of the page still works.
+      const el = document.getElementById('map');
+      if (el) { el.innerHTML = '<p style="padding:14px;color:var(--color-muted-foreground)">Map unavailable offline.</p>'; }
+    }
+
+    function setMarker(name, report) {
+      const m = markers[name];
+      if (!m) return;
+      m.setStyle({ fillColor: colorFor(report.category_key) });
+      const depth = (report.depth_m != null) ? Number(report.depth_m).toFixed(2) + ' m' : '—';
+      m.bindPopup(
+        '<b>' + name + '</b><br>' +
+        '<b>' + (report.final_label || report.category_key || 'Unknown') + '</b><br>' +
+        (report.advice || '') + '<br>' +
+        'Depth: ' + depth
+      );
+    }
+
+    // ----- Result rendering -----
+    function renderResult(data) {
+      const result = document.getElementById('result');
+      const depthEl = document.getElementById('depth');
+      const labelEl = document.getElementById('label');
+      const adviceEl = document.getElementById('advice');
+      const traceEl = document.getElementById('trace');
+      const headline = document.getElementById('headline');
+      const card = document.getElementById('resultCard');
+      const headIcon = document.getElementById('headIcon');
+
+      const depthM = (data.depth_m != null) ? Number(data.depth_m).toFixed(2) + ' m' : '—';
+      depthEl.textContent = depthM;
+      labelEl.textContent = data.final_label || data.category_label || labelFor(data.category_key) || '';
+      adviceEl.textContent = data.advice || '';
+
+      // Color card + head by category_key — but label + metres above always show it too.
+      const key = data.category_key;
+      const color = colorFor(key);
+      const ink = Kinga.riskInk(key);
+      card.style.borderLeftColor = color;
+      headline.style.background = color;
+      headline.style.color = ink;
+      headIcon.innerHTML = SAFE_KEYS[key] ? ICON_SAFE : ICON_WARN;
+
+      traceEl.innerHTML = '';
+      const trace = Array.isArray(data.trace) ? data.trace : [];
+      if (trace.length === 0) {
+        const li = document.createElement('li');
+        li.textContent = 'No trace returned.';
+        traceEl.appendChild(li);
+      } else {
+        trace.forEach(function (step) {
+          const li = document.createElement('li');
+          li.textContent = String(step);
+          traceEl.appendChild(li);
+        });
+      }
+      result.classList.add('show');
+
+      // Reflect this fresh reading on the map immediately.
+      if (data.settlement) {
+        setMarker(data.settlement, {
+          category_key: data.category_key,
+          final_label: data.final_label,
+          advice: data.advice,
+          depth_m: data.depth_m
+        });
+      }
+    }
+
+    function setStatus(msg, isErr) {
+      const n = document.getElementById('statusNote');
+      n.textContent = msg;
+      n.classList.toggle('err', !!isErr);
+    }
+
+    function setBusy(busy) {
+      document.getElementById('analyzeBtn').disabled = busy;
+      document.getElementById('demoBtn').disabled = busy;
+    }
+
+    async function postAnalyze(payload) {
+      if (!API || API === '__API_URL__') {
+        setStatus('Live API not wired yet (preview mode). Deploy injects the real URL.', true);
+        return;
+      }
+      setBusy(true);
+      setStatus('Analyzing…');
+      try {
+        const res = await fetch(API + '/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok || data.ok === false) {
+          setStatus('Could not analyze: ' + (data.error || res.status), true);
+        } else {
+          setStatus('Done. Depth computed deterministically from your reference object.');
+          renderResult(data);
+          loadReports(); // refresh alerts + markers
+        }
+      } catch (e) {
+        setStatus('Network error reaching the analyzer. Try the demo instead.', true);
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    function fileToBase64(file) {
+      return new Promise(function (resolve, reject) {
+        const reader = new FileReader();
+        reader.onload = function () {
+          const out = String(reader.result || '');
+          const comma = out.indexOf(',');       // strip "data:image/...;base64,"
+          resolve(comma >= 0 ? out.slice(comma + 1) : out);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    document.getElementById('analyzeBtn').addEventListener('click', async function () {
+      const settlement = document.getElementById('settlement').value;
+      const reference_object = document.getElementById('refobj').value;
+      const fileInput = document.getElementById('photo');
+      const file = fileInput.files && fileInput.files[0];
+      if (!file) {
+        setStatus('Choose a flood photo first, or run the demo.', true);
+        return;
+      }
+      try {
+        const image_base64 = await fileToBase64(file);
+        await postAnalyze({ settlement: settlement, reference_object: reference_object, image_base64: image_base64 });
+      } catch (e) {
+        setStatus('Could not read that photo. Try another, or run the demo.', true);
+      }
+    });
+
+    document.getElementById('demoBtn').addEventListener('click', function () {
+      const settlement = document.getElementById('settlement').value;
+      const reference_object = document.getElementById('refobj').value;
+      postAnalyze({ demo: true, settlement: settlement, reference_object: reference_object });
+    });
+
+    // ----- Alerts + marker recolouring -----
+    const timeAgo = Kinga.timeAgo;
+
+    function renderAlerts(reports) {
+      const ul = document.getElementById('alerts');
+      ul.innerHTML = '';
+      if (!reports || reports.length === 0) {
+        const li = document.createElement('li');
+        li.className = 'note';
+        li.textContent = 'No reports yet. Be the first to report a flood above.';
+        ul.appendChild(li);
+        return;
+      }
+      // Newest report per settlement -> recolour markers.
+      const newestBySettlement = {};
+      reports.forEach(function (r) {
+        const s = r.settlement;
+        if (!newestBySettlement[s] || String(r.timestamp) > String(newestBySettlement[s].timestamp)) {
+          newestBySettlement[s] = r;
+        }
+      });
+      Object.keys(newestBySettlement).forEach(function (s) {
+        setMarker(s, newestBySettlement[s]);
+      });
+
+      reports.forEach(function (r) {
+        const li = document.createElement('li');
+        li.className = 'alert';
+        const depth = (r.depth_m != null) ? Number(r.depth_m).toFixed(2) + ' m' : '—';
+        li.innerHTML =
+          '<div class="a-top">' +
+            '<span class="a-settlement"><span class="dot" style="background:' + colorFor(r.category_key) + '"></span>' +
+              (r.settlement || 'Unknown') + '</span>' +
+            '<span class="a-time">' + timeAgo(r.timestamp) + '</span>' +
+          '</div>' +
+          '<div class="a-label">' + (r.final_label || r.category_key || '') +
+            ' <span class="a-metres">· ' + depth + '</span></div>' +
+          '<div class="a-advice">' + (r.advice || '') + '</div>';
+        ul.appendChild(li);
+      });
+    }
+
+    async function loadReports() {
+      const ul = document.getElementById('alerts');
+      if (!API || API === '__API_URL__') {
+        ul.innerHTML = '<li class="note">Live alerts appear here once the app is deployed (preview mode).</li>';
+        return;
+      }
+      try {
+        const res = await fetch(API + '/reports');
+        const data = await res.json();
+        renderAlerts(data.reports || []);
+      } catch (e) {
+        ul.innerHTML = '<li class="note err">Could not reach the reporting network. The map is still live above.</li>';
+      }
+    }
+
+    // Kick off non-blocking (page already rendered map + panels).
+    loadReports();
+  </script>
+</body>
+</html>
